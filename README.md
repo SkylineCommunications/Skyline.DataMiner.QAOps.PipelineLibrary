@@ -49,12 +49,6 @@ This function expects the following commands to be available in the environment:
 - `dotnet`
 - `Push-TestCaseResult`
 
-Optionally, if the following command exists, it will be used:
-
-- `Limit-String`
-
-If `Limit-String` is available, failure messages are trimmed to a maximum of 2000 characters before publishing.
-
 ## How to use the library
 
 ### Import the module
