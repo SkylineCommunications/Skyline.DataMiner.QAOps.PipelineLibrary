@@ -1,0 +1,51 @@
+name: Publish PowerShell Module
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Publish module to PowerShell Gallery
+        shell: pwsh
+        env:
+          PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          if ([string]::IsNullOrWhiteSpace($env:PSGALLERY_API_KEY)) {
+              throw "Missing PSGALLERY_API_KEY secret."
+          }
+
+          $moduleName = 'Skyline.DataMiner.QAOps.PipelineLibrary'
+          $moduleRoot = $PWD
+          $manifestPath = Join-Path $moduleRoot "$moduleName.psd1"
+
+          if (-not (Test-Path $manifestPath)) {
+              throw "Module manifest not found: $manifestPath"
+          }
+
+          Install-Module Microsoft.PowerShell.PSResourceGet -Scope CurrentUser -Force
+
+          Import-Module Microsoft.PowerShell.PSResourceGet -Force
+
+          $manifest = Test-ModuleManifest -Path $manifestPath
+
+          Write-Host "Publishing module '$($manifest.Name)' version '$($manifest.Version)' from '$moduleRoot'"
+
+          Publish-PSResource `
+            -Path $moduleRoot `
+            -Repository PSGallery `
+            -ApiKey $env:PSGALLERY_API_KEY
