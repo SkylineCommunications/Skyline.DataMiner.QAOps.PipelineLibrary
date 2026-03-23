@@ -37,8 +37,28 @@ jobs:
               throw "Module manifest not found: $manifestPath"
           }
 
-          Install-Module Microsoft.PowerShell.PSResourceGet -Scope CurrentUser -Force
+          if ("${{ github.ref_type }}" -ne 'tag') {
+              throw "This workflow must be triggered by a tag push."
+          }
 
+          $tagName = "${{ github.ref_name }}"
+          if ([string]::IsNullOrWhiteSpace($tagName)) {
+              throw "Could not determine the tag name from github.ref_name."
+          }
+
+          $versionString = $tagName -replace '^v', ''
+
+          $parsedVersion = $null
+          if (-not [System.Version]::TryParse($versionString, [ref]$parsedVersion)) {
+              throw "Tag '$tagName' does not contain a valid version. Expected formats like '1.2.3' or 'v1.2.3'."
+          }
+
+          Write-Host "Tag detected: $tagName"
+          Write-Host "Updating manifest version to: $versionString"
+
+          Update-ModuleManifest -Path $manifestPath -ModuleVersion $versionString
+
+          Install-Module Microsoft.PowerShell.PSResourceGet -Scope CurrentUser -Force
           Import-Module Microsoft.PowerShell.PSResourceGet -Force
 
           $manifest = Test-ModuleManifest -Path $manifestPath
