@@ -68,11 +68,9 @@ Get-Command -Module Skyline.DataMiner.QAOps.PipelineLibrary
 ### Example usage
 
 ```powershell
-$scriptStart = Get-Date
 
 Invoke-DotNetTestAndPublishResults `
     -PathToTestPackageContent "C:\BuildArtifacts\TestOutput" `
-    -ScriptStart $scriptStart `
     -TestDllPath "C:\BuildArtifacts\Tests\MyTests.dll" `
     -ResultsFileName "test-results.trx"
 ```
@@ -82,13 +80,11 @@ Invoke-DotNetTestAndPublishResults `
 ```powershell
 Import-Module .\Skyline.DataMiner.QAOps.PipelineLibrary.psd1 -Force
 
-$scriptStart = Get-Date
 $testOutputFolder = "C:\Agent\work\test-output"
 $testDll = "C:\Agent\work\drop\MyProject.Tests.dll"
 
 Invoke-DotNetTestAndPublishResults `
     -PathToTestPackageContent $testOutputFolder `
-    -ScriptStart $scriptStart `
     -TestDllPath $testDll `
     -ResultsFileName "MyProject.Tests.trx"
 ```
@@ -217,7 +213,6 @@ When contributing a new function to this library, it is recommended to:
 
 ## Notes
 
-* `ScriptStart` is currently part of the `Invoke-DotNetTestAndPublishResults` signature but is not yet used internally.
 * The function assumes `Push-TestCaseResult` is available in the execution environment.
 * The library is designed to grow over time as more pipeline helper functions become shared and centralized.
 
