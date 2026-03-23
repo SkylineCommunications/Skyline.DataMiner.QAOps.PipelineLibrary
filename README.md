@@ -56,7 +56,9 @@ This function expects the following commands to be available in the environment:
 If the module is available locally, import it using the manifest or module file.
 
 ```powershell
-Import-Module .\Skyline.DataMiner.QAOps.PipelineLibrary.psd1 -Force
+#Install Skyline.DataMiner.QAOps.PipelineLibrary
+Install-Module Skyline.DataMiner.QAOps.PipelineLibrary -Repository PSGallery -Force -Scope CurrentUser
+Import-Module Skyline.DataMiner.QAOps.PipelineLibrary -Force
 ````
 
 You can verify that the function was loaded correctly with:
@@ -78,7 +80,9 @@ Invoke-DotNetTestAndPublishResults `
 ### Example in a pipeline script
 
 ```powershell
-Import-Module .\Skyline.DataMiner.QAOps.PipelineLibrary.psd1 -Force
+#Install Skyline.DataMiner.QAOps.PipelineLibrary
+Install-Module Skyline.DataMiner.QAOps.PipelineLibrary -Repository PSGallery -Force -Scope CurrentUser
+Import-Module Skyline.DataMiner.QAOps.PipelineLibrary -Force
 
 $testOutputFolder = "C:\Agent\work\test-output"
 $testDll = "C:\Agent\work\drop\MyProject.Tests.dll"
@@ -216,12 +220,3 @@ When contributing a new function to this library, it is recommended to:
 * The function assumes `Push-TestCaseResult` is available in the execution environment.
 * The library is designed to grow over time as more pipeline helper functions become shared and centralized.
 
-## Future improvements
-
-Possible future improvements for this library include:
-
-* splitting public functions into separate files for easier maintenance
-* adding private helper functions
-* adding comment-based help to each function
-* adding Pester tests for the module
-* publishing the module through a shared internal or public PowerShell repository
