@@ -8,25 +8,68 @@ function Invoke-DotNetTestAndPublishResults {
         [string]$TestDllPath,
 
         [Parameter(Mandatory = $true)]
-        [string]$ResultsFileName
+        [string]$ResultsFileName,
+
+        [Parameter(Mandatory = $false)]
+        [string]$UsesMTP = "false"
     )
+
+    $usesMtpBool = $false
+    if (-not [string]::IsNullOrWhiteSpace($UsesMTP)) {
+        $usesMtpBool = $UsesMTP.Trim().ToLowerInvariant() -eq "true"
+    }
 
     if (-not (Test-Path -Path $TestDllPath)) {
         throw "Test assembly not found: $TestDllPath"
     }
 
     $resultsPath = Join-Path $PathToTestPackageContent $ResultsFileName
+    $isExe = [System.IO.Path]::GetExtension($TestDllPath).Equals(".exe", [System.StringComparison]::OrdinalIgnoreCase)
 
     if (Test-Path -Path $resultsPath) {
         Remove-Item -Path $resultsPath -Force
     }
 
     try {
-        Write-Host "Executing: dotnet test `"$TestDllPath`"" -ForegroundColor Cyan
-        & dotnet test $TestDllPath --logger "trx;LogFileName=$resultsPath"
+        if ($isExe) {
+            $trxFileName = $ResultsFileName
+            $exeDirectory = Split-Path -Path $TestDllPath -Parent
+            $expectedTrxPath = Join-Path $exeDirectory ("TestResults\" + $trxFileName)
+        
+            Write-Host "Executing test executable with TRX output: `"$TestDllPath`"" -ForegroundColor Cyan
+        
+            & $TestDllPath `
+                --report-trx `
+                --report-trx-filename "$trxFileName"
+        
+            if ($LASTEXITCODE -ne 0) {
+                Write-Warning "Test executable returned exit code $LASTEXITCODE for $TestDllPath (will be reported from TRX)."
+            }
+        
+            if (-not (Test-Path -Path $expectedTrxPath)) {
+                throw "Expected TRX file was not created at: $expectedTrxPath"
+            }
+        
+            Copy-Item -Path $expectedTrxPath -Destination $resultsPath -Force
+        }
+        elseif ($usesMtpBool) {
+            Write-Host "Executing: dotnet test --test-modules `"$TestDllPath`"" -ForegroundColor Cyan
 
-        if ($LASTEXITCODE -ne 0) {
-            Write-Warning "dotnet test returned exit code $LASTEXITCODE for $TestDllPath (will be reported from TRX)."
+            & dotnet test --test-modules $TestDllPath
+
+            if ($LASTEXITCODE -ne 0) {
+                throw "dotnet test --test-modules failed with exit code $LASTEXITCODE for expression/path: $TestDllPath"
+            }
+
+            return
+        }
+        else {
+            Write-Host "Executing: dotnet test `"$TestDllPath`"" -ForegroundColor Cyan
+            & dotnet test $TestDllPath --logger "trx;LogFileName=$resultsPath"
+
+            if ($LASTEXITCODE -ne 0) {
+                Write-Warning "dotnet test returned exit code $LASTEXITCODE for $TestDllPath (will be reported from TRX)."
+            }
         }
 
         if (-not (Test-Path -Path $resultsPath)) {
@@ -109,7 +152,7 @@ function Invoke-DotNetTestAndPublishResults {
         }
     }
     finally {
-        if (Test-Path -Path $resultsPath) {
+        if ((-not $usesMtpBool) -and (Test-Path -Path $resultsPath)) {
             try {
                 Remove-Item -Path $resultsPath -Force
             }
@@ -119,8 +162,6 @@ function Invoke-DotNetTestAndPublishResults {
         }
     }
 }
-
-
 
 <#
 .SYNOPSIS
@@ -152,15 +193,13 @@ function Invoke-DotNetTestAndPublishResults {
 #>
 function Limit-String {
     param(
-        [Parameter(Mandatory=$true)][string]$stringToLimit,
-        [Parameter(Mandatory=$false)][int]$maxCharacters = 2000
+        [Parameter(Mandatory = $true)][string]$stringToLimit,
+        [Parameter(Mandatory = $false)][int]$maxCharacters = 2000
     )
     
     if ([string]::IsNullOrEmpty($stringToLimit)) { return $stringToLimit }
     if ($stringToLimit.Length -le $maxCharacters) { return $stringToLimit }
     return $stringToLimit.Substring(0, $maxCharacters) + "...(truncated)"
 }
-
-
 
 Export-ModuleMember -Function Invoke-DotNetTestAndPublishResults
