@@ -143,6 +143,30 @@ function Invoke-DotNetTestAndPublishResults {
                 continue
             }
 
+            if ($outcome -eq 'NotExecuted') {
+                $messageNode = $r.SelectSingleNode('t:Output/t:ErrorInfo/t:Message', $ns)
+
+                if ($messageNode -and -not [string]::IsNullOrWhiteSpace($messageNode.InnerText)) {
+                    $msg = $messageNode.InnerText.Trim()
+                }
+                else {
+                    $msg = "Test was not executed."
+                }
+
+                if (Get-Command -Name Limit-String -ErrorAction SilentlyContinue) {
+                    $msg = Limit-String -stringToLimit $msg -maxCharacters 2000
+                }
+
+                try {
+                    Push-TestCaseResult -Outcome 'NotExecuted' -Name $testName -Duration $duration -Message $msg -TestAspect Assertion
+                }
+                catch {
+                    Write-Host "Skipped Push for NotExecuted on $testName"
+                }
+
+                continue
+            }
+
             try {
                 Push-TestCaseResult -Outcome 'Fail' -Name $testName -Duration $duration -Message "Unhandled test outcome '$outcome'." -TestAspect Assertion
             }
