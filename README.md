@@ -25,6 +25,15 @@ This function is intended for pipeline scenarios where test execution must be tr
 - `ResultsFileName`  
   Name of the temporary `.trx` results file to generate and process.
 
+- `UsesMTP`  
+  Optional. Set to `true` to execute `dotnet test --test-modules`.
+
+- `TestFilter`  
+  Optional. Filter expression passed to the test executable or `dotnet test` (for example, `TestCategory=MyCategory`).
+
+- `PublishNotExecuted`  
+  Optional. Defaults to `true`. Set to `false` to skip publishing `NotExecuted`/ignored test rows.
+
 #### Behavior
 
 The function performs the following steps:
@@ -32,7 +41,7 @@ The function performs the following steps:
 1. Verifies that the provided test assembly exists.
 2. Builds the full path to the `.trx` results file.
 3. Removes any existing results file with the same name.
-4. Executes `dotnet test` with TRX logging enabled.
+4. Executes the test executable or `dotnet test` with TRX logging enabled.
 5. Verifies that the TRX file was created.
 6. Parses the TRX XML.
 7. Loops through all `UnitTestResult` entries.
@@ -40,7 +49,8 @@ The function performs the following steps:
    - passed tests as `OK`
    - failed/error/timeout/aborted tests as `Fail`
    - unexpected outcomes as `Fail`
-9. Removes the temporary TRX file afterwards.
+9. Logs test execution duration, TRX row count, published assertion count, and publish duration.
+10. Removes the temporary TRX file afterwards.
 
 #### Dependencies
 
@@ -75,6 +85,26 @@ Invoke-DotNetTestAndPublishResults `
     -PathToTestPackageContent "C:\BuildArtifacts\TestOutput" `
     -TestDllPath "C:\BuildArtifacts\Tests\MyTests.dll" `
     -ResultsFileName "test-results.trx"
+```
+
+To run only a subset of tests:
+
+```powershell
+Invoke-DotNetTestAndPublishResults `
+    -PathToTestPackageContent "C:\BuildArtifacts\TestOutput" `
+    -TestDllPath "C:\BuildArtifacts\Tests\MyTests.exe" `
+    -ResultsFileName "test-results.trx" `
+    -TestFilter "TestCategory=IDmsElementCreation"
+```
+
+To avoid spending time publishing ignored/skipped rows:
+
+```powershell
+Invoke-DotNetTestAndPublishResults `
+    -PathToTestPackageContent "C:\BuildArtifacts\TestOutput" `
+    -TestDllPath "C:\BuildArtifacts\Tests\MyTests.exe" `
+    -ResultsFileName "test-results.trx" `
+    -PublishNotExecuted $false
 ```
 
 ### Example in a pipeline script
@@ -219,4 +249,3 @@ When contributing a new function to this library, it is recommended to:
 
 * The function assumes `Push-TestCaseResult` is available in the execution environment.
 * The library is designed to grow over time as more pipeline helper functions become shared and centralized.
-
