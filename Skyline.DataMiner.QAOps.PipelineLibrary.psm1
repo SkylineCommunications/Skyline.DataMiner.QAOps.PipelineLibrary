@@ -11,7 +11,13 @@ function Invoke-DotNetTestAndPublishResults {
         [string]$ResultsFileName,
 
         [Parameter(Mandatory = $false)]
-        [string]$UsesMTP = "false"
+        [string]$UsesMTP = "false",
+
+        [Parameter(Mandatory = $false)]
+        [string]$TestFilter,
+
+        [Parameter(Mandatory = $false)]
+        [bool]$PublishNotExecuted = $true
     )
 
     $usesMtpBool = $false
@@ -31,16 +37,22 @@ function Invoke-DotNetTestAndPublishResults {
     }
 
     try {
+        $executionStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
         if ($isExe) {
             $trxFileName = $ResultsFileName
             $exeDirectory = Split-Path -Path $TestDllPath -Parent
             $expectedTrxPath = Join-Path $exeDirectory ("TestResults\" + $trxFileName)
+            $arguments = @('--report-trx', '--report-trx-filename', $trxFileName)
+            if (-not [string]::IsNullOrWhiteSpace($TestFilter)) {
+                $arguments = @('--filter', $TestFilter) + $arguments
+            }
         
             Write-Host "Executing test executable with TRX output: `"$TestDllPath`"" -ForegroundColor Cyan
+            if (-not [string]::IsNullOrWhiteSpace($TestFilter)) {
+                Write-Host "Applying test filter: $TestFilter" -ForegroundColor Cyan
+            }
         
-            & $TestDllPath `
-                --report-trx `
-                --report-trx-filename "$trxFileName"
+            & $TestDllPath @arguments
         
             if ($LASTEXITCODE -ne 0) {
                 Write-Warning "Test executable returned exit code $LASTEXITCODE for $TestDllPath (will be reported from TRX)."
@@ -55,7 +67,12 @@ function Invoke-DotNetTestAndPublishResults {
         elseif ($usesMtpBool) {
             Write-Host "Executing: dotnet test --test-modules `"$TestDllPath`"" -ForegroundColor Cyan
 
-            & dotnet test --test-modules $TestDllPath
+            $arguments = @('test', '--test-modules', $TestDllPath)
+            if (-not [string]::IsNullOrWhiteSpace($TestFilter)) {
+                $arguments += @('--filter', $TestFilter)
+            }
+
+            & dotnet @arguments
 
             if ($LASTEXITCODE -ne 0) {
                 throw "dotnet test --test-modules failed with exit code $LASTEXITCODE for expression/path: $TestDllPath"
@@ -65,12 +82,20 @@ function Invoke-DotNetTestAndPublishResults {
         }
         else {
             Write-Host "Executing: dotnet test `"$TestDllPath`"" -ForegroundColor Cyan
-            & dotnet test $TestDllPath --logger "trx;LogFileName=$resultsPath"
+            $arguments = @('test', $TestDllPath, '--logger', "trx;LogFileName=$resultsPath")
+            if (-not [string]::IsNullOrWhiteSpace($TestFilter)) {
+                $arguments += @('--filter', $TestFilter)
+            }
+
+            & dotnet @arguments
 
             if ($LASTEXITCODE -ne 0) {
                 Write-Warning "dotnet test returned exit code $LASTEXITCODE for $TestDllPath (will be reported from TRX)."
             }
         }
+
+        $executionStopwatch.Stop()
+        Write-Host "Test execution completed in $($executionStopwatch.Elapsed)." -ForegroundColor Cyan
 
         if (-not (Test-Path -Path $resultsPath)) {
             throw "Expected TRX results file was not created: $resultsPath"
@@ -86,6 +111,10 @@ function Invoke-DotNetTestAndPublishResults {
             throw "No UnitTestResult nodes found in TRX: $resultsPath"
         }
 
+        Write-Host "Publishing $($unitResults.Count) TRX test result(s) to QAOps." -ForegroundColor Cyan
+        $publishedCount = 0
+        $skippedNotExecutedCount = 0
+        $publishStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
         foreach ($r in $unitResults) {
             $testName = $r.GetAttribute('testName')
             $outcome = $r.GetAttribute('outcome')
@@ -106,6 +135,7 @@ function Invoke-DotNetTestAndPublishResults {
             if ($outcome -eq 'Passed') {
                 try {
                     Push-TestCaseResult -Outcome 'OK' -Name $testName -Duration $duration -Message "Test passed." -TestAspect Assertion
+                    $publishedCount++
                 }
                 catch {
                     Write-Host "Skipped Push for OK on $testName"
@@ -135,6 +165,7 @@ function Invoke-DotNetTestAndPublishResults {
 
                 try {
                     Push-TestCaseResult -Outcome 'Fail' -Name $testName -Duration $duration -Message $msg -TestAspect Assertion
+                    $publishedCount++
                 }
                 catch {
                     Write-Host "Skipped Push for Fail on $testName"
@@ -144,6 +175,11 @@ function Invoke-DotNetTestAndPublishResults {
             }
 
             if ($outcome -eq 'NotExecuted') {
+                if (-not $PublishNotExecuted) {
+                    $skippedNotExecutedCount++
+                    continue
+                }
+
                 $messageNode = $r.SelectSingleNode('t:Output/t:ErrorInfo/t:Message', $ns)
 
                 if ($messageNode -and -not [string]::IsNullOrWhiteSpace($messageNode.InnerText)) {
@@ -159,6 +195,7 @@ function Invoke-DotNetTestAndPublishResults {
 
                 try {
                     Push-TestCaseResult -Outcome 'NotExecuted' -Name $testName -Duration $duration -Message $msg -TestAspect Assertion
+                    $publishedCount++
                 }
                 catch {
                     Write-Host "Skipped Push for NotExecuted on $testName"
@@ -169,11 +206,15 @@ function Invoke-DotNetTestAndPublishResults {
 
             try {
                 Push-TestCaseResult -Outcome 'Fail' -Name $testName -Duration $duration -Message "Unhandled test outcome '$outcome'." -TestAspect Assertion
+                $publishedCount++
             }
             catch {
                 Write-Host "Skipped Push for Fail on $testName"
             }
         }
+
+        $publishStopwatch.Stop()
+        Write-Host "Published $publishedCount QAOps assertion result(s) in $($publishStopwatch.Elapsed). Skipped NotExecuted result(s): $skippedNotExecutedCount." -ForegroundColor Cyan
     }
     finally {
         if ((-not $usesMtpBool) -and (Test-Path -Path $resultsPath)) {
