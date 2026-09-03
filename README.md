@@ -4,248 +4,250 @@
 
 The goal of this library is to centralize common PowerShell logic so it can be reused across scripts and pipelines instead of being copied into multiple repositories.
 
-## What exists in this library
+It currently contains two things:
 
-At the moment, the library contains the following public function:
+- **[The QAFramework library](#the-qaframework-library)** – harvests, plans and runs legacy QAFramework regression tests inside a QAOps test package.
+- **[`Invoke-DotNetTestAndPublishResults`](#invoke-dotnettestandpublishresults)** – runs `dotnet test` and publishes the TRX results.
 
-### `Invoke-DotNetTestAndPublishResults`
-
-Runs `dotnet test` for a given test assembly, reads the generated `.trx` file, and publishes the individual test results through `Push-TestCaseResult`.
-
-This function is intended for pipeline scenarios where test execution must be translated into pipeline-friendly test case result reporting.
-
-#### Parameters
-
-- `PathToTestPackageContent`  
-  Path to the folder where the temporary `.trx` results file should be created.
-
-- `TestDllPath`  
-  Path to the test assembly that should be executed with `dotnet test`.
-
-- `ResultsFileName`  
-  Name of the temporary `.trx` results file to generate and process.
-
-- `UsesMTP`  
-  Optional. Set to `true` to execute `dotnet test --test-modules`.
-
-- `TestFilter`  
-  Optional. Filter expression passed to the test executable or `dotnet test` (for example, `TestCategory=MyCategory`).
-
-- `PublishNotExecuted`  
-  Optional. Defaults to `true`. Set to `false` to skip publishing `NotExecuted`/ignored test rows.
-
-#### Behavior
-
-The function performs the following steps:
-
-1. Verifies that the provided test assembly exists.
-2. Builds the full path to the `.trx` results file.
-3. Removes any existing results file with the same name.
-4. Executes the test executable or `dotnet test` with TRX logging enabled.
-5. Verifies that the TRX file was created.
-6. Parses the TRX XML.
-7. Loops through all `UnitTestResult` entries.
-8. Publishes:
-   - passed tests as `OK`
-   - failed/error/timeout/aborted tests as `Fail`
-   - unexpected outcomes as `Fail`
-9. Logs test execution duration, TRX row count, published assertion count, and publish duration.
-10. Removes the temporary TRX file afterwards.
-
-#### Dependencies
-
-This function expects the following commands to be available in the environment:
-
-- `dotnet`
-- `Push-TestCaseResult`
-
-## How to use the library
-
-### Import the module
-
-If the module is available locally, import it using the manifest or module file.
+## Install and import
 
 ```powershell
-#Install Skyline.DataMiner.QAOps.PipelineLibrary
 Install-Module Skyline.DataMiner.QAOps.PipelineLibrary -Repository PSGallery -Force -Scope CurrentUser
 Import-Module Skyline.DataMiner.QAOps.PipelineLibrary -Force
-````
 
-You can verify that the function was loaded correctly with:
-
-```powershell
 Get-Command -Module Skyline.DataMiner.QAOps.PipelineLibrary
 ```
 
-### Example usage
+---
+
+# The QAFramework library
+
+## What it does
+
+Test packages built from the legacy QAFramework (`QAManagement.TestFramework`) used to depend on a Windows scheduler that talks the DataMiner protocol directly. That does not work when the test package pipeline runs on a QAOps Bridge **without** DataMiner, for example a Linux orchestrator in the cluster.
+
+This library replaces that scheduler. It never runs a test itself: every test, every agent preparation step and every diagnostic action is started on a DataMiner agent through `Start-QAOpsBridgeExecution`. The orchestrating bridge only decides *what* runs *where* and *when*.
+
+```
+Invoke-QAFrameworkTestDiscovery      (harvest time, where the sources are)
+   parse attributes + .meta  ->  script.xml  ->  qaframework.tests.json
+
+Invoke-QAFrameworkTestPackage        (run time, on the orchestrating bridge)
+   Get-QAFrameworkRunConfiguration   parameters > test run labels > supplementary file > package config > defaults
+   Get-QAFrameworkClusterTopology    agents, DMA ids, failover pairs, cluster properties
+   Import-QAFrameworkTestMetadata    schema v1 (+ legacy metadata files)
+   Select-QAFrameworkTest            disabled, keywords, squads, version, database, centralized, red/green, ...
+   New-QAFrameworkExecutionPlan      phases + TargetDMA expansion
+   Initialize-QAFrameworkAgents      prepare every DataMiner agent
+   Invoke-QAFrameworkTestRun         weight scheduler, failover switching, result publishing
+   Push-TestCaseResult               pipeline_TestPackageExecution
+```
+
+QAOps itself stays unaware that these bridge executions represent individual tests.
+
+## Quick start for a test package
+
+Copy the three shims and the harvest script from `Templates/` into the test package content:
+
+| Copy | To |
+|---|---|
+| `Templates/TestDiscovery.sample.ps1` | `TestHarvesting/TestDiscovery.ps1` |
+| `Templates/Initialize-QAFrameworkAgent.ps1` | `TestPackagePipeline/helpers/Initialize-QAFrameworkAgent.ps1` |
+| `Templates/1.TestPackageSetup.sample.ps1` | `TestPackagePipeline/1.TestPackageSetup.ps1` |
+| `Templates/2.TestPackageExecution.sample.ps1` | `TestPackagePipeline/2.TestPackageExecution.ps1` |
+| `Templates/3.TestPackageFinalize.sample.ps1` | `TestPackagePipeline/3.TestPackageFinalize.ps1` |
+| `Templates/qaframework.discovery.sample.json` | `TestHarvesting/qaframework.discovery.json` (optional) |
+| `Templates/qaframework.config.sample.json` | `TestPackagePipeline/qaframework.config.json` (optional) |
+
+The execution shim is a single call:
 
 ```powershell
+Import-Module Skyline.DataMiner.QAOps.PipelineLibrary -Force
+Invoke-QAFrameworkTestPackage -TestPackageContentPath (Resolve-Path "$PSScriptRoot\..")
+```
 
+## Harvesting
+
+`Invoke-QAFrameworkTestDiscovery` walks a `RegressionTests` tree and writes everything the package needs:
+
+```
+<Content>/TestHarvesting/
+    xmlautomationtests.generated/<test>/script.xml
+    dependencies.generated/
+        knownautomationtests.generated
+        qaframework.tests.json            <- schema v1 metadata used at run time
+        testmetadata.generated.json       <- compatibility with older packages
+        GlobalDependencies/  TeamDependencies/  TestDependencies/
+```
+
+Both tests with a `.meta` file and attribute-only tests carrying a fixture attribute are discovered. **Attribute values always win over `.meta` values**, and the `.meta` file only fills the gaps, which keeps legacy RTManager tests without attributes working.
+
+Harvest-time filters are the ones that do not depend on the cluster: `-OnlyTests`, `-ForceOnlyTests`, `-BaselineGate`, `-Keywords`, `-ExcludeKeywords`, `-Squads`, `-ExcludeSquads`, `-IncludeDisabled`. Everything that depends on the cluster the package will run on stays a run-time decision.
+
+## Supported QAFramework attributes
+
+| Attribute | Effect |
+|---|---|
+| `TestFixture(name)` | The test name, which is also the automation script name. |
+| `PreRunFixture` | Runs in the PreRun phase, one at a time, filtered by `preRunFilter` (`all`, `none` or a regex). |
+| `DiagnosticTestFixture(runType)` | Runs before, after or before and after the whole run. Never subject to failover switching. |
+| `FailoverTestFixture(before, after)` | Runs the failover phases. `RunOnNonFailoverSystems` allows it on a cluster without failover pairs. |
+| `[BeforeSwitch]`, `[AfterSwitch]`, `[AfterSwitchReInit]` | Decide in which failover phases the test participates. |
+| `Disabled(reason)` | Dropped only when the reason is not blank, and reported as `NotExecuted` with the reason. |
+| `Weight(1..3)` | Weight of the test. An agent has capacity 3, so a weight 3 test owns its agent. |
+| `CanRunConcurrently(false)` | Moved to the NonConcurrent phase, where one test runs in the whole cluster. |
+| `TargetDMA(RunOn)` | `One`, `All`, `AllFailovers`, `LowestDMAID`, `HighestDMAID`. `All` and `AllFailovers` are cloned once per agent. |
+| `Keywords`, `Squad` | Include lists. An entry prefixed with `!` excludes instead. |
+| `MinVersion(feature, nextMain, main)` | Full port of the legacy feature release / main release / release path logic. |
+| `LocalDB(types)` | The test is kept when the cluster database is in the list. Empty means every database. |
+| `CentralizedTest`, `NonCentralizedTest` | Filtered on the cluster type, overridable with `forceRunNonCentralized`. |
+| `RedGreenTest` | On a red/green cluster only these tests run. |
+| `Customers`, `SolutionInfo(solution, minVersion)` | Customer filter and solution version gate. |
+| `BaselineTest`, `Maintainers`, `DCPIDS`, `RNIDS`, `ProjectID`, `LeakTest` | Carried in the metadata, not used for scheduling. |
+
+## Execution phases
+
+| Phase | Behaviour |
+|---|---|
+| Setup | `Initialize-QAFrameworkAgents` on every DataMiner agent. |
+| PreRun | One at a time in the cluster. |
+| DiagnosticsBefore | Diagnostic tests with run type `Before` or `BeforeAndAfter`. |
+| Main | Standard tests, weight scheduler across all agents. |
+| NonConcurrent | One at a time in the whole cluster. |
+| FailoverDirectBeforeSwitch / FailoverBeforeSwitch | `FailoverState = 0` on every agent. |
+| *switch* | `Start-QAOpsFailoverSwitch` per pair, then `Wait-QAOpsFailoverSwitch`. Pending work of that pair is retargeted to the new active agent. |
+| FailoverDirectAfterSwitch / FailoverAfterSwitch | `FailoverState = 10`. |
+| *switch back* | Restores the original active agent. |
+| FailoverAfterSwitchBack | `FailoverState = 20`. |
+| DiagnosticsAfter | Diagnostic tests with run type `After` or `BeforeAndAfter`. |
+
+The cluster is always restored: when the run switched but the package has no after-switch-back phase, the library switches back and resets `FailoverState` to 0 before it returns.
+
+## Scheduling
+
+Each agent has capacity 3. The free weight of an agent is `3 - sum(weight of its running tests)`. The scheduler prefers a test whose weight exactly fills the free weight and otherwise takes the first test that fits, which is the legacy `GetTestWithWeight` behaviour. Tests pinned to an agent by `TargetDMA` are considered before the shared pool. `maxTestsInCluster` caps the total number of simultaneously running tests.
+
+Each test is started as:
+
+```
+dotnet tool run dataminer-run-automation-script Local -sn <test name>
+```
+
+with the working directory set to the `TestPackagePipeline` folder of the agent, where `dotnet-tools.json` lives.
+
+Outcomes: exit code 0 is `Ok`, output containing `NotSupportedException` is `NotApplicable` (an unmet prerequisite), and anything else is `Fail`. Every result is published immediately as `automationscript_<test name>` with test aspect `Execution` and a message capped at 2000 characters. The overall result is `pipeline_TestPackageExecution`.
+
+## Configuration
+
+`TestPackagePipeline/qaframework.config.json`, see `Templates/qaframework.config.sample.json`:
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `agentCapacity` | 3 | Weight capacity per agent. |
+| `maxTestsInCluster` | unlimited | Cap on tests running at the same time. |
+| `testTimeoutSeconds` | 7200 | Maximum run time of one test. |
+| `schedulerTickSeconds` | 10 | Poll interval of the scheduler loop. |
+| `includeNonConcurrent` | true | Run the NonConcurrent phase. |
+| `disableFailoverRun` | false | Skip the failover phases entirely. |
+| `preRunFilter` | `all` | `all`, `none` or a regex on the test name. |
+| `rerunFailedTests` | false | Re-queue failed tests once. |
+| `forceRunNonCentralized` | false | Ignore the centralized filter. |
+| `logCollectionOnFailure` | false | Run `SL_LogCollector.exe` once on the first failing agent. |
+| `rtManagerRoot` | `C:\RTManager\` | RTManager root on the agents. |
+| `filters` | empty | `keywords`, `excludeKeywords`, `squads`, `excludeSquads`. |
+| `systemSettings` | empty | Extra values for `SystemSettings.json` on the agents. |
+
+Precedence, highest first: cmdlet parameters, the QAOps test run labels, `SupplementaryFiles/qaframework.overrides.json`, `qaframework.config.json`, the built-in legacy defaults.
+
+## Cmdlet reference
+
+| Cmdlet | Purpose |
+|---|---|
+| `Invoke-QAFrameworkTestDiscovery` | Harvest the regression tests into the test package. |
+| `Invoke-QAFrameworkTestPackage` | Run a whole test package with one call. |
+| `Import-QAFrameworkTestMetadata` | Read `qaframework.tests.json` or a legacy metadata file. |
+| `Get-QAFrameworkRunConfiguration` | Merge all configuration layers into one object. |
+| `Get-QAFrameworkClusterTopology` | Agents, DMA ids, failover pairs and cluster properties. |
+| `Select-QAFrameworkTest` | Apply every run-time filter and explain each dropped test. |
+| `New-QAFrameworkExecutionPlan` | Assign phases and expand `TargetDMA`. |
+| `Initialize-QAFrameworkAgents` | Prepare every DataMiner agent through a bridge execution. |
+| `Invoke-QAFrameworkTestRun` | The scheduler, the failover orchestration and the result publishing. |
+| `Publish-QAFrameworkTestResult` | Publish one work item as a QAOps test case result. |
+
+## Requirements
+
+The library expects these QAOps cmdlets in the session: `Get-QAOpsBridge`, `Start-QAOpsBridgeExecution`, `Wait-QAOpsBridgeExecution`, `Get-QAOpsBridgeExecution`, `Push-TestCaseResult`, and for the optional features `Get-QAOpsCluster`, `Get-QAOpsTestRunContext`, `Start-QAOpsFailoverSwitch` and `Wait-QAOpsFailoverSwitch`. Everything that is not available yet is read defensively: the library then falls back to the conservative legacy behaviour, for example by treating every bridge as a DataMiner agent and by disabling the failover phases.
+
+---
+
+# Invoke-DotNetTestAndPublishResults
+
+Runs `dotnet test` for a given test assembly, reads the generated `.trx` file, and publishes the individual test results through `Push-TestCaseResult`.
+
+### Parameters
+
+- `PathToTestPackageContent` – folder where the temporary `.trx` results file is created.
+- `TestDllPath` – the test assembly to execute.
+- `ResultsFileName` – name of the temporary `.trx` file.
+- `UsesMTP` – optional, set to `true` to execute `dotnet test --test-modules`.
+- `TestFilter` – optional filter expression, for example `TestCategory=MyCategory`.
+- `PublishNotExecuted` – optional, defaults to `true`. Set to `false` to skip `NotExecuted`/ignored rows.
+
+### Behaviour
+
+1. Verifies that the test assembly exists and builds the full TRX path.
+2. Removes an existing results file with the same name.
+3. Executes the test executable or `dotnet test` with TRX logging enabled.
+4. Parses the TRX XML and loops through all `UnitTestResult` entries.
+5. Publishes passed tests as `OK` and failed, error, timeout, aborted or unexpected outcomes as `Fail`.
+6. Logs the durations and counts and removes the temporary TRX file.
+
+### Examples
+
+```powershell
 Invoke-DotNetTestAndPublishResults `
     -PathToTestPackageContent "C:\BuildArtifacts\TestOutput" `
     -TestDllPath "C:\BuildArtifacts\Tests\MyTests.dll" `
     -ResultsFileName "test-results.trx"
-```
 
-To run only a subset of tests:
-
-```powershell
 Invoke-DotNetTestAndPublishResults `
     -PathToTestPackageContent "C:\BuildArtifacts\TestOutput" `
     -TestDllPath "C:\BuildArtifacts\Tests\MyTests.exe" `
     -ResultsFileName "test-results.trx" `
-    -TestFilter "TestCategory=IDmsElementCreation"
-```
-
-To avoid spending time publishing ignored/skipped rows:
-
-```powershell
-Invoke-DotNetTestAndPublishResults `
-    -PathToTestPackageContent "C:\BuildArtifacts\TestOutput" `
-    -TestDllPath "C:\BuildArtifacts\Tests\MyTests.exe" `
-    -ResultsFileName "test-results.trx" `
+    -TestFilter "TestCategory=IDmsElementCreation" `
     -PublishNotExecuted $false
 ```
 
-### Example in a pipeline script
+---
 
-```powershell
-#Install Skyline.DataMiner.QAOps.PipelineLibrary
-Install-Module Skyline.DataMiner.QAOps.PipelineLibrary -Repository PSGallery -Force -Scope CurrentUser
-Import-Module Skyline.DataMiner.QAOps.PipelineLibrary -Force
+# Contributing
 
-$testOutputFolder = "C:\Agent\work\test-output"
-$testDll = "C:\Agent\work\drop\MyProject.Tests.dll"
+## Module layout
 
-Invoke-DotNetTestAndPublishResults `
-    -PathToTestPackageContent $testOutputFolder `
-    -TestDllPath $testDll `
-    -ResultsFileName "MyProject.Tests.trx"
+```
+Skyline.DataMiner.QAOps.PipelineLibrary.psd1   manifest, FunctionsToExport is the public surface
+Skyline.DataMiner.QAOps.PipelineLibrary.psm1   dot-sources Private/*.ps1 and Public/*.ps1
+Public/                                        one file per exported function
+Private/                                       helpers, never exported
+Templates/                                     files a test package copies into its content
+tests/                                         Pester 5 tests, QAOps cmdlets are stubbed
 ```
 
-## How the module is structured
+## Adding a function
 
-The module currently consists of:
-
-* `Skyline.DataMiner.QAOps.PipelineLibrary.psd1`
-  The module manifest containing metadata and exported functions.
-
-* `Skyline.DataMiner.QAOps.PipelineLibrary.psm1`
-  The script module containing the implementation of the library functions.
-
-The manifest exports the public functions defined in the module.
-
-## How to add a new function yourself
-
-To add a new reusable function to this library, follow the steps below.
-
-### 1. Add the function to the `.psm1`
-
-Open `Skyline.DataMiner.QAOps.PipelineLibrary.psm1` and add your new function.
-
-Example:
+1. Add `Public/Verb-Noun.ps1` with one function, `[CmdletBinding()]` and comment-based help containing at least `.SYNOPSIS`, `.DESCRIPTION` and one `.PARAMETER` per parameter. Helpers go in `Private/`.
+2. Add the name to `FunctionsToExport` in the `.psd1`. `tests/Module.Tests.ps1` fails when the manifest and `Public/` drift apart or when help is missing.
+3. Add `tests/Verb-Noun.Tests.ps1`. Stub every new QAOps dependency in `tests/Stubs/QAOps.PowerShell.Stubs.psm1` first.
+4. Run the tests.
 
 ```powershell
-function Get-ExampleMessage {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Name
-    )
-
-    return "Hello, $Name"
-}
+pwsh -NoProfile -c "Import-Module Pester -MinimumVersion 5.0; Invoke-Pester -Path tests -Output Detailed"
 ```
 
-### 2. Export the function from the module
+Windows PowerShell ships Pester 3, so always run the tests with `pwsh`.
 
-At the bottom of the `.psm1`, update `Export-ModuleMember` so your function becomes publicly available.
+## Guidelines
 
-Example:
-
-```powershell
-Export-ModuleMember -Function `
-    Invoke-DotNetTestAndPublishResults, `
-    Get-ExampleMessage
-```
-
-If you prefer, you can also keep this on one line:
-
-```powershell
-Export-ModuleMember -Function Invoke-DotNetTestAndPublishResults, Get-ExampleMessage
-```
-
-### 3. Add the function name to the manifest
-
-Open `Skyline.DataMiner.QAOps.PipelineLibrary.psd1` and add the new function name to `FunctionsToExport`.
-
-Example:
-
-```powershell
-FunctionsToExport = @(
-    'Invoke-DotNetTestAndPublishResults',
-    'Get-ExampleMessage'
-)
-```
-
-This ensures the manifest correctly exposes the new function.
-
-### 4. Test the module locally
-
-After updating the module, reload it and verify the new command is available.
-
-```powershell
-Import-Module .\Skyline.DataMiner.QAOps.PipelineLibrary.psd1 -Force
-Get-Command Get-ExampleMessage
-```
-
-You can then test the function:
-
-```powershell
-Get-ExampleMessage -Name 'Jan'
-```
-
-### 5. Keep functions reusable
-
-When adding a new function, try to keep it:
-
-* focused on one responsibility
-* reusable across multiple scripts or pipelines
-* independent from repository-specific paths or assumptions
-* clear in naming and parameter design
-* safe in error handling
-
-### 6. Document the new function
-
-Whenever you add a new function, update this README so other users of the library understand:
-
-* what the function does
-* which parameters it accepts
-* whether it has dependencies
-* how it should be used
-
-## Recommended guidelines for new functions
-
-When contributing a new function to this library, it is recommended to:
-
-* use `[CmdletBinding()]`
-* define clear and explicit parameters
-* validate required inputs
-* throw meaningful errors when required inputs are invalid
-* avoid hardcoding project-specific paths
-* keep output and side effects predictable
-* catch exceptions only when there is a clear recovery or reporting reason
-
-## Example workflow for extending the library
-
-1. Add the function to `Skyline.DataMiner.QAOps.PipelineLibrary.psm1`
-2. Export it with `Export-ModuleMember`
-3. Add it to `FunctionsToExport` in `Skyline.DataMiner.QAOps.PipelineLibrary.psd1`
-4. Reload the module locally
-5. Test the function
-6. Update this README
-
-## Notes
-
-* The function assumes `Push-TestCaseResult` is available in the execution environment.
-* The library is designed to grow over time as more pipeline helper functions become shared and centralized.
+- Keep functions focused, reusable and free of repository-specific paths.
+- The run-time cmdlets must work on a Linux orchestrator: use `Join-Path`, never assume `C:\`, and never call a Windows-only tool outside the agent-side templates.
+- Never work around a missing QAOps cmdlet. Add the cmdlet with a `// TODO` in the QAOps solution instead and call it defensively here.
