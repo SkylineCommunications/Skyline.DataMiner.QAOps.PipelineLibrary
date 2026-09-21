@@ -28,6 +28,11 @@ Test packages built from the legacy QAFramework (`QAManagement.TestFramework`) u
 
 This library replaces that scheduler. It never runs a test itself: every test, every agent preparation step and every diagnostic action is started on a DataMiner agent through `Start-QAOpsBridgeExecution`. The orchestrating bridge only decides *what* runs *where* and *when*.
 
+The runtime passes bridge identifiers to the QAOps execution and failover cmdlets, and
+execution identifiers when polling or stopping remote processes. This is compatible with
+both native QAOps objects and data that has crossed a PowerShell serialization or module
+boundary.
+
 ```
 Invoke-QAFrameworkTestDiscovery      (harvest time, where the sources are)
    parse attributes + .meta  ->  script.xml  ->  qaframework.tests.json

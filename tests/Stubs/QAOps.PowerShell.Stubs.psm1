@@ -200,6 +200,7 @@ function Start-QAOpsBridgeExecution {
     $execution = [pscustomobject]@{
         Id                   = "exec-$($script:Executions.Count + 1)"
         BridgeId             = $bridgeId
+        BridgeArgumentType   = if ($Bridge -is [string]) { 'String' } else { $Bridge.GetType().FullName }
         BridgeDisplayName    = $bridgeId
         Executable           = $Executable
         Arguments            = [string[]]$Arguments
@@ -215,6 +216,9 @@ function Start-QAOpsBridgeExecution {
         StartTime            = [DateTime]::UtcNow
         EndTime              = $null
         StubOutcome          = $outcome
+        GetArgumentType      = $null
+        WaitArgumentType     = $null
+        StopArgumentType     = $null
     }
 
     $script:Executions.Add($execution)
@@ -230,7 +234,11 @@ function Get-QAOpsBridgeExecution {
     if (-not $Execution) { return $script:Executions | ForEach-Object { $_ } }
 
     $id = if ($Execution -is [string]) { $Execution } else { $Execution.Id }
-    return $script:Executions | Where-Object { $_.Id -eq $id } | Select-Object -First 1
+    $stored = $script:Executions | Where-Object { $_.Id -eq $id } | Select-Object -First 1
+    if ($stored) {
+        $stored.GetArgumentType = if ($Execution -is [string]) { 'String' } else { $Execution.GetType().FullName }
+    }
+    return $stored
 }
 
 function Wait-QAOpsBridgeExecution {
@@ -244,6 +252,11 @@ function Wait-QAOpsBridgeExecution {
     )
 
     foreach ($item in $Execution) {
+        $itemId = if ($item -is [string]) { [string]$item } else { [string]$item.Id }
+        $stored = $script:Executions | Where-Object { $_.Id -eq $itemId } | Select-Object -First 1
+        if ($stored) {
+            $stored.WaitArgumentType = if ($item -is [string]) { 'String' } else { $item.GetType().FullName }
+        }
         $stored = Get-QAOpsBridgeExecution -Execution $item
         if (-not $stored -or $stored.IsFinished) { continue }
 
@@ -271,6 +284,7 @@ function Stop-QAOpsBridgeExecution {
     )
     $stored = Get-QAOpsBridgeExecution -Execution $Execution
     if ($stored) {
+        $stored.StopArgumentType = if ($Execution -is [string]) { 'String' } else { $Execution.GetType().FullName }
         $stored.State = 'Cancelled'
         $stored.IsFinished = $true
         $stored.EndTime = [DateTime]::UtcNow
@@ -318,7 +332,8 @@ function Start-QAOpsFailoverSwitch {
     $switchOperation = [pscustomobject]@{
         Id                   = "fos-$($script:FailoverSwitches.Count + 1)"
         PairId               = $PairId
-        BridgeId             = if ($Bridge) { $Bridge.Id } else { $null }
+        BridgeId             = if ($Bridge -is [string]) { $Bridge } elseif ($Bridge) { $Bridge.Id } else { $null }
+        BridgeArgumentType   = if ($Bridge -is [string]) { 'String' } else { $Bridge.GetType().FullName }
         State                = 'Completed'
         IsFinished           = $true
         ActiveBridgeIdBefore = if ($Bridge) { $Bridge.Id } else { $null }

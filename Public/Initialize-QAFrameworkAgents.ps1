@@ -102,7 +102,7 @@ function Initialize-QAFrameworkAgents {
         if (-not $PSCmdlet.ShouldProcess($agent.BridgeId, 'Initialize QAFramework agent')) { continue }
 
         try {
-            $execution = Start-QAOpsBridgeExecution -Bridge $agent.Bridge -Executable 'pwsh' -Arguments ([string[]]$arguments) -TimeoutSeconds $TimeoutSeconds
+            $execution = Start-QAOpsBridgeExecution -Bridge $agent.BridgeId -Executable 'pwsh' -Arguments ([string[]]$arguments) -TimeoutSeconds $TimeoutSeconds
             $started.Add([pscustomobject]@{ Agent = $agent; Execution = $execution })
         }
         catch {
@@ -121,12 +121,12 @@ function Initialize-QAFrameworkAgents {
 
     if ($started.Count -eq 0) { return }
 
-    $null = Wait-QAOpsBridgeExecution -Execution ([object[]]@($started | ForEach-Object { $_.Execution })) -TimeoutSeconds $TimeoutSeconds
+    $null = Wait-QAOpsBridgeExecution -Execution ([object[]]@($started | ForEach-Object { [string]$_.Execution.Id })) -TimeoutSeconds $TimeoutSeconds
 
     $failures = [System.Collections.Generic.List[string]]::new()
 
     foreach ($entry in $started) {
-        $state = Get-QAOpsBridgeExecution -Execution $entry.Execution
+        $state = Get-QAOpsBridgeExecution -Execution ([string]$entry.Execution.Id)
         $outcome = Get-QAFrameworkExecutionOutcome -Execution $state
         $success = ($outcome.Outcome -eq 'Ok')
 

@@ -22,6 +22,7 @@ Describe 'Initialize-QAFrameworkAgents' {
         ($results.BridgeId | Sort-Object) | Should -Be @('agent1', 'agent2')
         $results.Success | Should -Be @($true, $true)
         (Get-QAOpsStubExecution).BridgeId | Should -Not -Contain 'orchestrator'
+        (Get-QAOpsStubExecution).BridgeArgumentType | Should -Be @('String', 'String')
     }
 
     It 'starts pwsh with paths relative to the target package root' {

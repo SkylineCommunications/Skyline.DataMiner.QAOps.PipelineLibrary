@@ -35,10 +35,10 @@ function Invoke-QAFrameworkLogCollection {
     $arguments = [string[]]@('--console', '--folder=C:\Skyline', '--dumps=SLNet.exe,SLDataMiner.exe,SLXml.exe')
 
     try {
-        $execution = Start-QAOpsBridgeExecution -Bridge $Agent.Bridge -Executable $CollectorPath -Arguments $arguments -TimeoutSeconds $TimeoutSeconds
+        $execution = Start-QAOpsBridgeExecution -Bridge $Agent.BridgeId -Executable $CollectorPath -Arguments $arguments -TimeoutSeconds $TimeoutSeconds
 
         if ($Wait) {
-            $null = Wait-QAOpsBridgeExecution -Execution ([object[]]@($execution)) -TimeoutSeconds $TimeoutSeconds
+            $null = Wait-QAOpsBridgeExecution -Execution ([object[]]@([string]$execution.Id)) -TimeoutSeconds $TimeoutSeconds
         }
 
         return [pscustomobject]@{

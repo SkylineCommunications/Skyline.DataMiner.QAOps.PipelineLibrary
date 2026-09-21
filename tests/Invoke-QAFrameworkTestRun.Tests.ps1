@@ -76,6 +76,9 @@ Describe 'Invoke-QAFrameworkTestRun' {
             ($execution.Arguments -join ' ') | Should -Be 'tool run dataminer-run-automation-script Local -sn RT_A'
             $execution.WorkingDirectory | Should -BeLike '*TestPackagePipeline'
             $execution.TimeoutSeconds | Should -Be 60
+            $execution.BridgeArgumentType | Should -Be 'String'
+            $execution.WaitArgumentType | Should -Be 'String'
+            $execution.GetArgumentType | Should -Be 'String'
         }
 
         It 'publishes one QAOps test case per test' {

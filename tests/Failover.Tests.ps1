@@ -69,6 +69,7 @@ Describe 'Failover orchestration' {
 
         $plan.Phases | Should -Be @('Main', 'FailoverAfterSwitch', 'FailoverAfterSwitchBack')
         (Get-QAOpsStubFailoverSwitch).Count | Should -Be 2
+        (Get-QAOpsStubFailoverSwitch).BridgeArgumentType | Should -Be @('String', 'String')
         $run.FailoverSwitches.Count | Should -Be 2
         $run.FailoverSwitches.Success | Should -Be @($true, $true)
     }

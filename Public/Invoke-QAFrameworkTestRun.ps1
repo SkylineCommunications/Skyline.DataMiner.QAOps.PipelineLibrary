@@ -216,7 +216,7 @@ function Invoke-QAFrameworkTestRun {
                         $command = New-QAFrameworkExecutionCommand -WorkItem $candidate -TestPackageContentPath $contentPath -Configuration $Configuration
 
                         try {
-                            $execution = Start-QAOpsBridgeExecution -Bridge $agent.Bridge -Executable $command.Executable -Arguments $command.Arguments -WorkingDirectory $command.WorkingDirectory -TimeoutSeconds $command.TimeoutSeconds
+                            $execution = Start-QAOpsBridgeExecution -Bridge $agent.BridgeId -Executable $command.Executable -Arguments $command.Arguments -WorkingDirectory $command.WorkingDirectory -TimeoutSeconds $command.TimeoutSeconds
                         }
                         catch {
                             $candidate.Attempt++
@@ -263,7 +263,7 @@ function Invoke-QAFrameworkTestRun {
             # Wait-QAOpsBridgeExecution treats its timeout as a terminating failure. A timeout
             # here only means that no execution completed during this scheduler tick.
             try {
-                $executions = [object[]]@($running | ForEach-Object { $_.Execution })
+                $executions = [object[]]@($running | ForEach-Object { [string]$_.Execution.Id })
                 $updated = @(Wait-QAOpsBridgeExecution -Execution $executions -Any -TimeoutSeconds $tickSeconds)
             }
             catch {
@@ -274,7 +274,7 @@ function Invoke-QAFrameworkTestRun {
 
                 $updated = @(
                     foreach ($entry in $running) {
-                        Get-QAOpsBridgeExecution -Execution $entry.Execution
+                        Get-QAOpsBridgeExecution -Execution ([string]$entry.Execution.Id)
                     }
                 )
             }
@@ -292,7 +292,7 @@ function Invoke-QAFrameworkTestRun {
                 if (($now - [DateTime]$entry.WorkItem.StartedAt).TotalSeconds -lt $testTimeoutSeconds) { continue }
 
                 try {
-                    Stop-QAOpsBridgeExecution -Execution $entry.Execution -ErrorAction Continue
+                    Stop-QAOpsBridgeExecution -Execution ([string]$entry.Execution.Id) -ErrorAction Continue
                 }
                 catch {
                     Write-Warning "Could not stop timed-out execution '$($entry.Execution.Id)': $($_.Exception.Message)"
@@ -336,7 +336,7 @@ function Invoke-QAFrameworkTestRun {
     finally {
         foreach ($entry in @($running)) {
             try {
-                Stop-QAOpsBridgeExecution -Execution $entry.Execution -ErrorAction Continue
+                Stop-QAOpsBridgeExecution -Execution ([string]$entry.Execution.Id) -ErrorAction Continue
             }
             catch {
                 Write-Warning "Could not stop execution '$($entry.Execution.Id)' while cleaning up the run: $($_.Exception.Message)"

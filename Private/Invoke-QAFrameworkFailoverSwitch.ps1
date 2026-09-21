@@ -99,7 +99,7 @@ function Invoke-QAFrameworkFailoverSwitch {
 
     foreach ($pair in $pairs) {
         try {
-            $operation = Start-QAOpsFailoverSwitch -Bridge $pair.Primary.Bridge -PairId $pair.PairId
+            $operation = Start-QAOpsFailoverSwitch -Bridge $pair.Primary.BridgeId -PairId $pair.PairId
             $switches.Add([pscustomobject]@{ Pair = $pair; Operation = $operation })
         }
         catch {
