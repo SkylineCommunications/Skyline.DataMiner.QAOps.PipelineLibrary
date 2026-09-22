@@ -140,7 +140,7 @@ dotnet tool run dataminer-run-automation-script Local -sn <test name>
 
 with the working directory set to the `TestPackagePipeline` folder of the agent, where `dotnet-tools.json` lives.
 
-Outcomes: exit code 0 is `Ok`, output containing `NotSupportedException` is `NotApplicable` (an unmet prerequisite), and anything else is `Fail`. Every result is published immediately as `automationscript_<test name>` with test aspect `Execution` and a message capped at 2000 characters. The overall result is `pipeline_TestPackageExecution`.
+Outcomes: exit code 0 is `Ok`, output containing `NotSupportedException` is `NotApplicable` (an unmet prerequisite), and anything else is `Fail`. Every result is published immediately as `automationscript_<test name>` with test aspect `Execution` and a message capped at 2000 characters. The overall result is `pipeline_TestPackageExecution`; it uses `Diagnostic` only when `C:\Program Files\Skyline Communications\DataMiner QAOpsBridge\DataMiner QAOpsBridge.exe` has a `ProductVersion` numeric core of at least `2.13.0` (including prerelease versions). If `ProductVersion` is blank, it uses `FileVersion`; otherwise it uses `Execution`.
 
 ## Configuration
 

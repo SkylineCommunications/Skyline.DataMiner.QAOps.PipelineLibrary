@@ -49,6 +49,15 @@ Describe 'Invoke-QAFrameworkTestPackage' {
         $overall = $results | Where-Object { $_.Name -eq 'pipeline_TestPackageExecution' }
         $overall | Should -Not -BeNullOrEmpty
         $overall.Outcome | Should -Be 'Ok'
+        $overall.TestAspect | Should -Be 'Execution'
+    }
+
+    It 'publishes a successful overall result as Diagnostic when the Bridge supports it' {
+        Mock Get-QAFrameworkDiagnosticTestAspect { 'Diagnostic' } -ModuleName Skyline.DataMiner.QAOps.PipelineLibrary
+
+        $null = Invoke-QAFrameworkTestPackage -TestPackageContentPath $script:ContentPath
+
+        $overall = Get-QAOpsStubTestResult | Where-Object { $_.Name -eq 'pipeline_TestPackageExecution' }
         $overall.TestAspect | Should -Be 'Diagnostic'
     }
 
@@ -78,6 +87,17 @@ Describe 'Invoke-QAFrameworkTestPackage' {
 
         $result.Outcome | Should -Be 'Fail'
         $result.Run.HasFailed | Should -BeTrue
+        $overall = Get-QAOpsStubTestResult | Where-Object { $_.Name -eq 'pipeline_TestPackageExecution' }
+        $overall.Outcome | Should -Be 'Fail'
+        $overall.TestAspect | Should -Be 'Execution'
+    }
+
+    It 'publishes an orchestration failure as Diagnostic when the Bridge supports it' {
+        Mock Get-QAFrameworkDiagnosticTestAspect { 'Diagnostic' } -ModuleName Skyline.DataMiner.QAOps.PipelineLibrary
+        Set-Content -Path (Join-Path $script:ContentPath 'TestPackagePipeline\qaframework.config.json') -Value '{invalid'
+
+        { Invoke-QAFrameworkTestPackage -TestPackageContentPath $script:ContentPath } | Should -Throw
+
         $overall = Get-QAOpsStubTestResult | Where-Object { $_.Name -eq 'pipeline_TestPackageExecution' }
         $overall.Outcome | Should -Be 'Fail'
         $overall.TestAspect | Should -Be 'Diagnostic'
