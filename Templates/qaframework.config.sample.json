@@ -1,0 +1,29 @@
+{
+  "//": "Copy to <TestPackageContent>/TestPackagePipeline/qaframework.config.json. Every value is optional; the values below are the built-in legacy defaults. A SupplementaryFiles/qaframework.overrides.json with the same shape wins over this file, and cmdlet parameters win over both.",
+
+  "agentCapacity": 3,
+  "maxTestsInCluster": 2147483647,
+  "testTimeoutSeconds": 7200,
+  "schedulerTickSeconds": 10,
+
+  "includeNonConcurrent": true,
+  "disableFailoverRun": false,
+  "preRunFilter": "all",
+  "rerunFailedTests": false,
+  "forceRunNonCentralized": false,
+  "logCollectionOnFailure": false,
+
+  "rtManagerRoot": "C:\\RTManager\\",
+
+  "filters": {
+    "keywords": [],
+    "excludeKeywords": [],
+    "squads": [],
+    "excludeSquads": []
+  },
+
+  "systemSettings": {
+    "PushToPortal": false,
+    "TearDownNeeded": true
+  }
+}

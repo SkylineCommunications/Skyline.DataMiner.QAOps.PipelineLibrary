@@ -12,7 +12,7 @@
 RootModule = 'Skyline.DataMiner.QAOps.PipelineLibrary.psm1'
 
 # Version number of this module.
-ModuleVersion = '0.0.1'
+ModuleVersion = '0.1.0'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -70,7 +70,27 @@ Description = 'Shared QAOps pipeline functions for DataMiner automation and test
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = @(
-    'Invoke-DotNetTestAndPublishResults'
+    'Invoke-DotNetTestAndPublishResults',
+    'Import-QAFrameworkTestMetadata',
+    'Get-QAFrameworkRunConfiguration',
+    'Get-QAFrameworkClusterTopology',
+    'Select-QAFrameworkTest',
+    'New-QAFrameworkExecutionPlan',
+    'Publish-QAFrameworkTestResult',
+    'Invoke-QAFrameworkTestRun',
+    'Initialize-QAFrameworkAgents',
+    'Invoke-QAFrameworkTestPackage',
+    'Invoke-QAFrameworkTestDiscovery'
+)
+
+# Files packaged with this module. Directories are used so new helper files do not
+# require a manifest update; the exported surface is governed by FunctionsToExport.
+FileList = @(
+    'Skyline.DataMiner.QAOps.PipelineLibrary.psm1',
+    'Skyline.DataMiner.QAOps.PipelineLibrary.psd1',
+    'Public',
+    'Private',
+    'Templates'
 )
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
@@ -109,7 +129,7 @@ PrivateData = @{
         # IconUri = ''
 
         # ReleaseNotes of this module
-        ReleaseNotes = 'Initial version including Invoke-DotNetTestAndPublishResults.'
+        ReleaseNotes = '0.1.0 - Added the QAFramework library: test discovery and harvesting, metadata import, run configuration, cluster topology, test selection, execution planning, the weight based scheduler with failover orchestration and result publishing. Every test runs through QAOps bridge executions, so a test package also works on a QAOps Bridge without DataMiner.'
 
         # Prerelease string of this module
         # Prerelease = ''

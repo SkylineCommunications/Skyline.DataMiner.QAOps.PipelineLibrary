@@ -1,0 +1,68 @@
+{
+  "//": "Written by Invoke-QAFrameworkTestDiscovery to <TestPackageContent>/TestHarvesting/dependencies.generated/qaframework.tests.json. Only 'name' is required; every other field falls back to the legacy default shown here.",
+
+  "schemaVersion": 1,
+  "tests": [
+    {
+      "name": "RT_Alarming_BasicAlarmFlow",
+      "fixture": "Standard",
+      "diagnosticRunType": null,
+      "failover": null,
+      "disabled": null,
+      "weight": 2,
+      "canRunConcurrently": true,
+      "targetDma": "One",
+      "keywords": [ "smoke" ],
+      "squads": [ "Alarming" ],
+      "maintainers": [ "jane.doe" ],
+      "customers": [],
+      "minVersion": { "featureRelease": "10.1.7.0-CU0", "nextMainRelease": "", "mainRelease": "" },
+      "localDbs": [],
+      "solution": null,
+      "isCentralizedOnly": false,
+      "isNonCentralizedOnly": false,
+      "isRedGreen": false,
+      "isBaseline": true,
+      "isLeakTest": false,
+      "dcpIds": [ "DCP123456" ],
+      "rnIds": [ "RN12345" ],
+      "projectIds": [],
+      "source": {
+        "cs": "Alarming/RT_Alarming_BasicAlarmFlow/RT_Alarming_BasicAlarmFlow.cs",
+        "meta": "Alarming/RT_Alarming_BasicAlarmFlow/RT_Alarming_BasicAlarmFlow.meta",
+        "folderTag": "QAOps\\MyPackage\\Alarming"
+      },
+      "dllReferences": [ "C:\\RTManager\\GlobalDependencies\\QAHelper.dll" ]
+    },
+    {
+      "name": "RT_Setup_PrepareCluster",
+      "fixture": "PreRun",
+      "weight": 1,
+      "canRunConcurrently": false,
+      "targetDma": "All"
+    },
+    {
+      "name": "RT_Failover_SwitchSurvivesAlarms",
+      "fixture": "Failover",
+      "failover": {
+        "runDirectBeforeSwitch": true,
+        "runDirectAfterSwitch": false,
+        "runOnNonFailoverSystems": false,
+        "hasBeforeSwitch": true,
+        "hasAfterSwitch": true,
+        "hasAfterSwitchBack": false
+      },
+      "targetDma": "AllFailovers"
+    },
+    {
+      "name": "RT_Diagnostic_CollectClusterInfo",
+      "fixture": "Diagnostic",
+      "diagnosticRunType": "BeforeAndAfter"
+    },
+    {
+      "name": "RT_Legacy_TemporarilyBroken",
+      "fixture": "Standard",
+      "disabled": { "reason": "DCP123456 - fails on 10.5 since the alarm tree change." }
+    }
+  ]
+}

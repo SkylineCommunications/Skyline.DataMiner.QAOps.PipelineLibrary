@@ -1,0 +1,18 @@
+{
+  "//": "Copy to <TestPackageContent>/TestHarvesting/qaframework.discovery.json. Every value is optional and is overruled by the parameters of Invoke-QAFrameworkTestDiscovery.",
+
+  "regressionTestsRoot": "../../../../RegressionTests",
+  "folderTagPrefix": "QAOps\\MyTestPackage\\",
+
+  "onlyTests": [],
+  "forceOnlyTests": false,
+
+  "baselineGate": "Disabled",
+
+  "keywords": [],
+  "excludeKeywords": [],
+  "squads": [],
+  "excludeSquads": [],
+
+  "includeDisabled": false
+}
