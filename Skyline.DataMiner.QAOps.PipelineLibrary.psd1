@@ -83,14 +83,53 @@ FunctionsToExport = @(
     'Invoke-QAFrameworkTestDiscovery'
 )
 
-# Files packaged with this module. Directories are used so new helper files do not
-# require a manifest update; the exported surface is governed by FunctionsToExport.
+# Files packaged with this module.
 FileList = @(
     'Skyline.DataMiner.QAOps.PipelineLibrary.psm1',
     'Skyline.DataMiner.QAOps.PipelineLibrary.psd1',
-    'Public',
-    'Private',
-    'Templates'
+    'Private/ConvertFrom-QAFrameworkAttributeBlock.ps1',
+    'Private/ConvertFrom-QAFrameworkAttributeValue.ps1',
+    'Private/ConvertFrom-QAFrameworkMetaFile.ps1',
+    'Private/ConvertTo-QAFrameworkTestMetadata.ps1',
+    'Private/Copy-QAFrameworkDependency.ps1',
+    'Private/Get-QAFrameworkAttribute.ps1',
+    'Private/Get-QAFrameworkClassAttributeBlock.ps1',
+    'Private/Get-QAFrameworkExecutionOutcome.ps1',
+    'Private/Get-QAFrameworkMethodAttributeFlag.ps1',
+    'Private/Invoke-QAFrameworkFailoverSwitch.ps1',
+    'Private/Invoke-QAFrameworkLogCollection.ps1',
+    'Private/Join-QAFrameworkAgentPath.ps1',
+    'Private/Limit-String.ps1',
+    'Private/New-QAFrameworkAutomationScriptXml.ps1',
+    'Private/New-QAFrameworkExecutionCommand.ps1',
+    'Private/New-QAFrameworkTestMetadata.ps1',
+    'Private/Resolve-QAFrameworkTargetAgent.ps1',
+    'Private/Select-QAFrameworkNextWorkItem.ps1',
+    'Private/Split-QAFrameworkAttributeArgument.ps1',
+    'Private/Test-QAFrameworkHarvestFilter.ps1',
+    'Private/Test-QAFrameworkListMatch.ps1',
+    'Private/Test-QAFrameworkPreRunFilter.ps1',
+    'Private/Test-QAFrameworkSolutionCompatible.ps1',
+    'Private/Test-QAFrameworkVersionCompatible.ps1',
+    'Public/Get-QAFrameworkClusterTopology.ps1',
+    'Public/Get-QAFrameworkRunConfiguration.ps1',
+    'Public/Import-QAFrameworkTestMetadata.ps1',
+    'Public/Initialize-QAFrameworkAgents.ps1',
+    'Public/Invoke-DotNetTestAndPublishResults.ps1',
+    'Public/Invoke-QAFrameworkTestDiscovery.ps1',
+    'Public/Invoke-QAFrameworkTestPackage.ps1',
+    'Public/Invoke-QAFrameworkTestRun.ps1',
+    'Public/New-QAFrameworkExecutionPlan.ps1',
+    'Public/Publish-QAFrameworkTestResult.ps1',
+    'Public/Select-QAFrameworkTest.ps1',
+    'Templates/1.TestPackageSetup.sample.ps1',
+    'Templates/2.TestPackageExecution.sample.ps1',
+    'Templates/3.TestPackageFinalize.sample.ps1',
+    'Templates/Initialize-QAFrameworkAgent.ps1',
+    'Templates/qaframework.config.sample.json',
+    'Templates/qaframework.discovery.sample.json',
+    'Templates/qaframework.tests.sample.json',
+    'Templates/TestDiscovery.sample.ps1'
 )
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.

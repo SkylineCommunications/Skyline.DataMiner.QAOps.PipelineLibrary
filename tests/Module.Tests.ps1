@@ -40,6 +40,44 @@ Describe 'Module manifest' {
     It 'is a valid manifest' {
         { Test-ModuleManifest -Path $script:ModulePath } | Should -Not -Throw
     }
+
+    It 'lists every packaged module file as a file path' {
+        $expectedFiles = @(
+            'Skyline.DataMiner.QAOps.PipelineLibrary.psd1'
+            'Skyline.DataMiner.QAOps.PipelineLibrary.psm1'
+        ) + @(
+            Get-ChildItem -Path @(
+                (Join-Path $script:RepoRoot 'Private')
+                (Join-Path $script:RepoRoot 'Public')
+                (Join-Path $script:RepoRoot 'Templates')
+            ) -File -Recurse |
+                ForEach-Object {
+                    [System.IO.Path]::GetRelativePath($script:RepoRoot, $_.FullName).Replace('\', '/')
+                }
+        )
+
+        ($script:Manifest.FileList | Sort-Object) | Should -Be ($expectedFiles | Sort-Object)
+        foreach ($file in $script:Manifest.FileList) {
+            (Test-Path -LiteralPath (Join-Path $script:RepoRoot $file) -PathType Leaf) | Should -BeTrue
+        }
+    }
+
+    It 'supports updating the module version during publishing' {
+        $stagedModule = Join-Path $TestDrive 'Skyline.DataMiner.QAOps.PipelineLibrary'
+        New-Item -Path $stagedModule -ItemType Directory | Out-Null
+
+        Copy-Item -Path @(
+            $script:ModulePath
+            (Join-Path $script:RepoRoot 'Skyline.DataMiner.QAOps.PipelineLibrary.psm1')
+            (Join-Path $script:RepoRoot 'Private')
+            (Join-Path $script:RepoRoot 'Public')
+            (Join-Path $script:RepoRoot 'Templates')
+        ) -Destination $stagedModule -Recurse
+
+        $stagedManifest = Join-Path $stagedModule 'Skyline.DataMiner.QAOps.PipelineLibrary.psd1'
+        { Update-ModuleManifest -Path $stagedManifest -ModuleVersion '1.4.0' } | Should -Not -Throw
+        (Test-ModuleManifest -Path $stagedManifest).Version | Should -Be ([version]'1.4.0')
+    }
 }
 
 Describe 'Public function documentation' {
