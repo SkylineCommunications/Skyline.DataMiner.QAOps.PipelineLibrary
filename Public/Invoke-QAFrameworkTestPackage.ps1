@@ -14,7 +14,8 @@ function Invoke-QAFrameworkTestPackage {
         5. build the execution plan (phases and TargetDMA expansion),
         6. optionally prepare the agents,
         7. run the plan and publish every test as it finishes,
-        8. publish the overall pipeline_TestPackageExecution result as a Diagnostic aspect.
+        8. publish the overall pipeline_TestPackageExecution result using the Diagnostic aspect
+           when the installed QAOps Bridge supports it, otherwise Execution.
 
         The orchestrator never runs a test itself, so this works unchanged on a QAOps Bridge
         without DataMiner.
@@ -64,71 +65,72 @@ function Invoke-QAFrameworkTestPackage {
     )
 
     $startedAt = [DateTime]::UtcNow
+    $overallResultTestAspect = Get-QAFrameworkDiagnosticTestAspect
 
     try {
-    $configurationParameters = @{ TestPackageContentPath = $TestPackageContentPath }
-    foreach ($name in @('Keywords', 'ExcludeKeywords', 'Squads', 'ExcludeSquads')) {
-        if ($PSBoundParameters.ContainsKey($name)) { $configurationParameters[$name] = $PSBoundParameters[$name] }
-    }
-
-    $configuration = Get-QAFrameworkRunConfiguration @configurationParameters
-    Write-Verbose "Run configuration built from: $($configuration.sources -join ', ')."
-
-    $topology = Get-QAFrameworkClusterTopology
-    Write-Verbose "Cluster has $($topology.Agents.Count) DataMiner agent(s) and $($topology.FailoverPairs.Count) failover pair(s)."
-
-    $tests = @(Import-QAFrameworkTestMetadata -TestPackageContentPath $TestPackageContentPath)
-    Write-Verbose "Imported $($tests.Count) test(s)."
-
-    $selectionParameters = @{ Test = $tests; Configuration = $configuration; Topology = $topology }
-    if ($PSBoundParameters.ContainsKey('Customers')) { $selectionParameters['Customers'] = $Customers }
-
-    $selection = Select-QAFrameworkTest @selectionParameters
-    Write-Verbose "$($selection.Selected.Count) test(s) selected, $($selection.Dropped.Count) dropped."
-
-    $plan = New-QAFrameworkExecutionPlan -Test $selection.Selected -Topology $topology -Configuration $configuration
-
-    if (-not $SkipPublish) {
-        foreach ($dropped in @($selection.Dropped) + @($plan.Skipped)) {
-            $null = Publish-QAFrameworkTestResult -WorkItem ([pscustomobject]@{ Name = $dropped.Name; Outcome = 'NotExecuted'; Message = $dropped.Reason }) -Outcome 'NotExecuted' -Message $dropped.Reason
+        $configurationParameters = @{ TestPackageContentPath = $TestPackageContentPath }
+        foreach ($name in @('Keywords', 'ExcludeKeywords', 'Squads', 'ExcludeSquads')) {
+            if ($PSBoundParameters.ContainsKey($name)) { $configurationParameters[$name] = $PSBoundParameters[$name] }
         }
-    }
 
-    if (-not $SkipAgentSetup) {
-        Write-Verbose 'Preparing the DataMiner agents.'
-        $null = Initialize-QAFrameworkAgents -Topology $topology -Configuration $configuration -TestPackageContentPath $TestPackageContentPath
-    }
+        $configuration = Get-QAFrameworkRunConfiguration @configurationParameters
+        Write-Verbose "Run configuration built from: $($configuration.sources -join ', ')."
 
-    $run = Invoke-QAFrameworkTestRun -Plan $plan -Topology $topology -Configuration $configuration -TestPackageContentPath $TestPackageContentPath -SkipPublish:$SkipPublish
+        $topology = Get-QAFrameworkClusterTopology
+        Write-Verbose "Cluster has $($topology.Agents.Count) DataMiner agent(s) and $($topology.FailoverPairs.Count) failover pair(s)."
 
-    $duration = [DateTime]::UtcNow - $startedAt
-    $overallOutcome = if ($run.HasFailed) { 'Fail' } else { 'Ok' }
-    $overallMessage = 'Ok: {0}, Fail: {1}, NotApplicable: {2}, NotExecuted: {3}, dropped before the run: {4}.' -f `
-        $run.Summary.Ok, $run.Summary.Fail, $run.Summary.NotApplicable, $run.Summary.NotExecuted, (@($selection.Dropped).Count + @($plan.Skipped).Count)
+        $tests = @(Import-QAFrameworkTestMetadata -TestPackageContentPath $TestPackageContentPath)
+        Write-Verbose "Imported $($tests.Count) test(s)."
 
-    Write-Host $overallMessage
+        $selectionParameters = @{ Test = $tests; Configuration = $configuration; Topology = $topology }
+        if ($PSBoundParameters.ContainsKey('Customers')) { $selectionParameters['Customers'] = $Customers }
 
-    if (-not $SkipPublish) {
-        try {
-            Push-TestCaseResult -Outcome $overallOutcome -Name $OverallResultName -Duration $duration -Message (Limit-String -stringToLimit $overallMessage -maxCharacters 2000) -TestAspect 'Diagnostic'
+        $selection = Select-QAFrameworkTest @selectionParameters
+        Write-Verbose "$($selection.Selected.Count) test(s) selected, $($selection.Dropped.Count) dropped."
+
+        $plan = New-QAFrameworkExecutionPlan -Test $selection.Selected -Topology $topology -Configuration $configuration
+
+        if (-not $SkipPublish) {
+            foreach ($dropped in @($selection.Dropped) + @($plan.Skipped)) {
+                $null = Publish-QAFrameworkTestResult -WorkItem ([pscustomobject]@{ Name = $dropped.Name; Outcome = 'NotExecuted'; Message = $dropped.Reason }) -Outcome 'NotExecuted' -Message $dropped.Reason
+            }
         }
-        catch {
-            Write-Warning "Could not publish the overall result: $($_.Exception.Message)"
-        }
-    }
 
-    if ($PassThru) {
-        return [pscustomobject]@{
-            Configuration = $configuration
-            Topology      = $topology
-            Selection     = $selection
-            Plan          = $plan
-            Run           = $run
-            Outcome       = $overallOutcome
-            Duration      = $duration
-            Message       = $overallMessage
+        if (-not $SkipAgentSetup) {
+            Write-Verbose 'Preparing the DataMiner agents.'
+            $null = Initialize-QAFrameworkAgents -Topology $topology -Configuration $configuration -TestPackageContentPath $TestPackageContentPath
         }
-    }
+
+        $run = Invoke-QAFrameworkTestRun -Plan $plan -Topology $topology -Configuration $configuration -TestPackageContentPath $TestPackageContentPath -SkipPublish:$SkipPublish
+
+        $duration = [DateTime]::UtcNow - $startedAt
+        $overallOutcome = if ($run.HasFailed) { 'Fail' } else { 'Ok' }
+        $overallMessage = 'Ok: {0}, Fail: {1}, NotApplicable: {2}, NotExecuted: {3}, dropped before the run: {4}.' -f `
+            $run.Summary.Ok, $run.Summary.Fail, $run.Summary.NotApplicable, $run.Summary.NotExecuted, (@($selection.Dropped).Count + @($plan.Skipped).Count)
+
+        Write-Host $overallMessage
+
+        if (-not $SkipPublish) {
+            try {
+                Push-TestCaseResult -Outcome $overallOutcome -Name $OverallResultName -Duration $duration -Message (Limit-String -stringToLimit $overallMessage -maxCharacters 2000) -TestAspect $overallResultTestAspect
+            }
+            catch {
+                Write-Warning "Could not publish the overall result: $($_.Exception.Message)"
+            }
+        }
+
+        if ($PassThru) {
+            return [pscustomobject]@{
+                Configuration = $configuration
+                Topology      = $topology
+                Selection     = $selection
+                Plan          = $plan
+                Run           = $run
+                Outcome       = $overallOutcome
+                Duration      = $duration
+                Message       = $overallMessage
+            }
+        }
     }
     catch {
         $failure = $_
@@ -138,7 +140,7 @@ function Invoke-QAFrameworkTestPackage {
         if (-not $SkipPublish -and (Get-Command -Name 'Push-TestCaseResult' -ErrorAction SilentlyContinue)) {
             try {
                 Push-TestCaseResult -Outcome 'Fail' -Name $OverallResultName -Duration $duration `
-                    -Message (Limit-String -stringToLimit $message -maxCharacters 2000) -TestAspect 'Diagnostic'
+                    -Message (Limit-String -stringToLimit $message -maxCharacters 2000) -TestAspect $overallResultTestAspect
             }
             catch {
                 Write-Warning "Could not publish the failed overall result: $($_.Exception.Message)"
