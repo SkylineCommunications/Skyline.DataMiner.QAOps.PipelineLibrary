@@ -299,7 +299,7 @@ function Push-TestCaseResult {
         [Parameter(Mandatory = $true)][string]$Name,
         [Parameter(Mandatory = $false)][TimeSpan]$Duration = [TimeSpan]::Zero,
         [Parameter(Mandatory = $false)][string]$Message = '',
-        [Parameter(Mandatory = $false)][ValidateSet('Assertion', 'Execution')][string]$TestAspect = 'Assertion'
+        [Parameter(Mandatory = $false)][ValidateSet('Assertion', 'Execution', 'Diagnostic')][string]$TestAspect = 'Assertion'
     )
     $script:TestResults.Add([pscustomobject]@{
             Outcome    = $Outcome

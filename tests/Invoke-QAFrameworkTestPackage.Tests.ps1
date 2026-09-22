@@ -49,6 +49,7 @@ Describe 'Invoke-QAFrameworkTestPackage' {
         $overall = $results | Where-Object { $_.Name -eq 'pipeline_TestPackageExecution' }
         $overall | Should -Not -BeNullOrEmpty
         $overall.Outcome | Should -Be 'Ok'
+        $overall.TestAspect | Should -Be 'Diagnostic'
     }
 
     It 'reports a disabled test as NotExecuted with its reason' {
@@ -77,7 +78,9 @@ Describe 'Invoke-QAFrameworkTestPackage' {
 
         $result.Outcome | Should -Be 'Fail'
         $result.Run.HasFailed | Should -BeTrue
-        (Get-QAOpsStubTestResult | Where-Object { $_.Name -eq 'pipeline_TestPackageExecution' }).Outcome | Should -Be 'Fail'
+        $overall = Get-QAOpsStubTestResult | Where-Object { $_.Name -eq 'pipeline_TestPackageExecution' }
+        $overall.Outcome | Should -Be 'Fail'
+        $overall.TestAspect | Should -Be 'Diagnostic'
     }
 
     It 'publishes nothing when -SkipPublish is used' {

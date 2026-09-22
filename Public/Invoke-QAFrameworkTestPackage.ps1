@@ -14,7 +14,7 @@ function Invoke-QAFrameworkTestPackage {
         5. build the execution plan (phases and TargetDMA expansion),
         6. optionally prepare the agents,
         7. run the plan and publish every test as it finishes,
-        8. publish the overall pipeline_TestPackageExecution result.
+        8. publish the overall pipeline_TestPackageExecution result as a Diagnostic aspect.
 
         The orchestrator never runs a test itself, so this works unchanged on a QAOps Bridge
         without DataMiner.
@@ -110,7 +110,7 @@ function Invoke-QAFrameworkTestPackage {
 
     if (-not $SkipPublish) {
         try {
-            Push-TestCaseResult -Outcome $overallOutcome -Name $OverallResultName -Duration $duration -Message (Limit-String -stringToLimit $overallMessage -maxCharacters 2000) -TestAspect 'Execution'
+            Push-TestCaseResult -Outcome $overallOutcome -Name $OverallResultName -Duration $duration -Message (Limit-String -stringToLimit $overallMessage -maxCharacters 2000) -TestAspect 'Diagnostic'
         }
         catch {
             Write-Warning "Could not publish the overall result: $($_.Exception.Message)"
@@ -138,7 +138,7 @@ function Invoke-QAFrameworkTestPackage {
         if (-not $SkipPublish -and (Get-Command -Name 'Push-TestCaseResult' -ErrorAction SilentlyContinue)) {
             try {
                 Push-TestCaseResult -Outcome 'Fail' -Name $OverallResultName -Duration $duration `
-                    -Message (Limit-String -stringToLimit $message -maxCharacters 2000) -TestAspect 'Execution'
+                    -Message (Limit-String -stringToLimit $message -maxCharacters 2000) -TestAspect 'Diagnostic'
             }
             catch {
                 Write-Warning "Could not publish the failed overall result: $($_.Exception.Message)"
