@@ -1,152 +1,238 @@
 function Invoke-QAFrameworkTestPackage {
     <#
     .SYNOPSIS
-        Runs a QAFramework test package from start to finish.
+        Runs a QAFramework test package through the standalone orchestrator.
     .DESCRIPTION
-        The one call a test package needs in its 2.TestPackageExecution.ps1. It performs the
-        whole flow:
-
-        1. read the run configuration (parameters, test run labels, supplementary file, package
-           configuration and the legacy defaults),
-        2. read the cluster topology from QAOps,
-        3. import the harvested test metadata,
-        4. drop the tests that may not run here and report them as NotExecuted with the reason,
-        5. build the execution plan (phases and TargetDMA expansion),
-        6. optionally prepare the agents,
-        7. run the plan and publish every test as it finishes,
-        8. publish the overall pipeline_TestPackageExecution result using the Diagnostic aspect
-           when the installed QAOps Bridge supports it, otherwise Execution.
-
-        The orchestrator never runs a test itself, so this works unchanged on a QAOps Bridge
-        without DataMiner.
+        Installs or updates the package-local QAFramework tool and invokes its run command.
+        Agent preparation, selection, scheduling, Failover, retries, and result publication are
+        owned by the orchestrator; a run always revalidates Agent setup.
     .PARAMETER TestPackageContentPath
-        The test package content root. Defaults to the parent folder of the calling script.
+        Test package content root.
     .PARAMETER Keywords
-        Only run tests with one of these keywords. Prefix with ! to exclude instead.
+        Override the keyword selection. A value prefixed with ! is an exclusion for legacy
+        PipelineLibrary configurations.
     .PARAMETER ExcludeKeywords
-        Do not run tests with one of these keywords.
+        Override keyword exclusions.
     .PARAMETER Squads
-        Only run tests of one of these squads. Prefix with ! to exclude instead.
+        Override the squad selection. A value prefixed with ! is an exclusion for legacy
+        PipelineLibrary configurations.
     .PARAMETER ExcludeSquads
-        Do not run tests of one of these squads.
+        Override squad exclusions.
     .PARAMETER Customers
-        Only run tests of these customers, next to the tests without a customer.
-    .PARAMETER SkipAgentSetup
-        Do not run Initialize-QAFrameworkAgents. Use this when 1.TestPackageSetup.ps1 already
-        prepared the agents.
+        Override the customer selection.
+    .PARAMETER ConfigPath
+        Explicit unified or supported legacy QAFramework configuration file.
+    .PARAMETER SupplementaryFilesPath
+        Validated supplementary-files directory used for configuration overrides.
+    .PARAMETER ResultsPath
+        Optional path for the final JSON summary. Defaults to the QAFramework summary path in
+        TestPackagePipeline.
+    .PARAMETER SetupTimeoutSeconds
+        Maximum duration allowed for Agent setup.
     .PARAMETER SkipPublish
-        Do not publish anything to QAOps. Useful for a dry run.
+        Do not publish attempt or overall results to QAOps. This is not a dry-run mode.
     .PARAMETER PassThru
-        Return the run result object instead of only writing the summary.
+        Return the parsed JSON run summary on success.
+    .PARAMETER SkipAgentSetup
+        Removed. The orchestrator always revalidates Agent setup before scheduling tests.
     .PARAMETER OverallResultName
-        The name of the overall QAOps test case. Defaults to pipeline_TestPackageExecution.
+        Only the standard pipeline_TestPackageExecution result name is supported.
     .EXAMPLE
-        Invoke-QAFrameworkTestPackage -TestPackageContentPath (Resolve-Path "$PSScriptRoot\..")
+        Invoke-QAFrameworkTestPackage -TestPackageContentPath (Resolve-Path "$PSScriptRoot\..") -PassThru
     .OUTPUTS
-        The run result object when -PassThru is used.
+        The parsed JSON run summary when -PassThru is used.
     #>
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess = $true)]
     [OutputType([pscustomobject])]
     param(
         [Parameter(Mandatory = $true)]
         [string]$TestPackageContentPath,
 
-        [Parameter()][string[]]$Keywords,
-        [Parameter()][string[]]$ExcludeKeywords,
-        [Parameter()][string[]]$Squads,
-        [Parameter()][string[]]$ExcludeSquads,
-        [Parameter()][string[]]$Customers,
+        [Parameter()]
+        [string[]]$Keywords,
 
-        [Parameter()][switch]$SkipAgentSetup,
-        [Parameter()][switch]$SkipPublish,
-        [Parameter()][switch]$PassThru,
+        [Parameter()]
+        [string[]]$ExcludeKeywords,
 
-        [Parameter()][string]$OverallResultName = 'pipeline_TestPackageExecution'
+        [Parameter()]
+        [string[]]$Squads,
+
+        [Parameter()]
+        [string[]]$ExcludeSquads,
+
+        [Parameter()]
+        [string[]]$Customers,
+
+        [Parameter()]
+        [string]$ConfigPath,
+
+        [Parameter()]
+        [string]$SupplementaryFilesPath,
+
+        [Parameter()]
+        [string]$ResultsPath,
+
+        [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
+        [int]$SetupTimeoutSeconds = 1800,
+
+        [Parameter()]
+        [switch]$SkipAgentSetup,
+
+        [Parameter()]
+        [switch]$SkipPublish,
+
+        [Parameter()]
+        [switch]$PassThru,
+
+        [Parameter()]
+        [string]$OverallResultName = 'pipeline_TestPackageExecution'
     )
 
-    $startedAt = [DateTime]::UtcNow
-    $overallResultTestAspect = Get-QAFrameworkDiagnosticTestAspect
+    if ($SkipAgentSetup) {
+        throw '-SkipAgentSetup is no longer supported. The orchestrator always revalidates Agent setup before running tests.'
+    }
+    if ($OverallResultName -ne 'pipeline_TestPackageExecution') {
+        throw 'Custom -OverallResultName values are no longer supported. The orchestrator publishes the standard pipeline_TestPackageExecution result.'
+    }
+
+    $paths = Resolve-QAFrameworkContentPath -Path $TestPackageContentPath
+    if (-not $PSCmdlet.ShouldProcess($paths.ContentPath, 'Run QAFramework test package')) {
+        return
+    }
+
+    $filter = @{}
+    $keywordExclusions = [System.Collections.Generic.List[string]]::new()
+    $squadExclusions = [System.Collections.Generic.List[string]]::new()
+    if ($PSBoundParameters.ContainsKey('Keywords')) {
+        $includedKeywords = [System.Collections.Generic.List[string]]::new()
+        foreach ($keyword in @($Keywords)) {
+            if ([string]::IsNullOrWhiteSpace($keyword)) {
+                throw 'Keywords cannot contain empty values.'
+            }
+            if ($keyword.StartsWith('!', [System.StringComparison]::Ordinal) -and $keyword.Length -gt 1) {
+                $keywordExclusions.Add($keyword.Substring(1))
+            }
+            else {
+                $includedKeywords.Add($keyword)
+            }
+        }
+        $filter['keywords'] = [string[]]$includedKeywords
+    }
+    if ($PSBoundParameters.ContainsKey('ExcludeKeywords')) {
+        if (@($ExcludeKeywords | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -gt 0) {
+            throw 'ExcludeKeywords cannot contain empty values.'
+        }
+        $keywordExclusions.AddRange([string[]]@($ExcludeKeywords))
+    }
+    if ($keywordExclusions.Count -gt 0 -or $PSBoundParameters.ContainsKey('ExcludeKeywords')) {
+        $filter['excludeKeywords'] = [string[]]$keywordExclusions
+    }
+    if ($PSBoundParameters.ContainsKey('Squads')) {
+        $includedSquads = [System.Collections.Generic.List[string]]::new()
+        foreach ($squad in @($Squads)) {
+            if ([string]::IsNullOrWhiteSpace($squad)) {
+                throw 'Squads cannot contain empty values.'
+            }
+            if ($squad.StartsWith('!', [System.StringComparison]::Ordinal) -and $squad.Length -gt 1) {
+                $squadExclusions.Add($squad.Substring(1))
+            }
+            else {
+                $includedSquads.Add($squad)
+            }
+        }
+        $filter['squads'] = [string[]]$includedSquads
+    }
+    if ($PSBoundParameters.ContainsKey('ExcludeSquads')) {
+        if (@($ExcludeSquads | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -gt 0) {
+            throw 'ExcludeSquads cannot contain empty values.'
+        }
+        $squadExclusions.AddRange([string[]]@($ExcludeSquads))
+    }
+    if ($squadExclusions.Count -gt 0 -or $PSBoundParameters.ContainsKey('ExcludeSquads')) {
+        $filter['excludeSquads'] = [string[]]$squadExclusions
+    }
+    if ($PSBoundParameters.ContainsKey('Customers')) {
+        if (@($Customers | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -gt 0) {
+            throw 'Customers cannot contain empty values.'
+        }
+        $filter['customers'] = [string[]]@($Customers)
+    }
+
+    $overrides = if ($filter.Count -gt 0) { @{ filter = $filter } } else { @{} }
+    if ((-not $PSBoundParameters.ContainsKey('ConfigPath')) -and ($null -eq (Get-QAFrameworkPackageConfigInfo -ContentPath $paths.ContentPath))) {
+        $overrides['selectionPolicy'] = 'LegacyPipeline'
+    }
+
+    $requestPath = $null
+    $configPathResolved = $null
+    if ($PSBoundParameters.ContainsKey('ConfigPath')) {
+        $configPathResolved = Resolve-QAFrameworkPackageFilePath `
+            -Path $ConfigPath `
+            -ContentPath $paths.ContentPath `
+            -Description 'ConfigPath'
+    }
+
+    $supplementaryPathResolved = $null
+    if ($PSBoundParameters.ContainsKey('SupplementaryFilesPath')) {
+        $supplementaryPathResolved = (Resolve-Path -LiteralPath $SupplementaryFilesPath -ErrorAction Stop).ProviderPath
+        if (-not (Test-Path -LiteralPath $supplementaryPathResolved -PathType Container)) {
+            throw "SupplementaryFilesPath must be an existing directory: $SupplementaryFilesPath"
+        }
+    }
+
+    if ($PSBoundParameters.ContainsKey('ResultsPath')) {
+        if ([string]::IsNullOrWhiteSpace($ResultsPath)) {
+            throw 'ResultsPath cannot be empty.'
+        }
+        $summaryPath = if ([System.IO.Path]::IsPathRooted($ResultsPath)) {
+            [System.IO.Path]::GetFullPath($ResultsPath)
+        }
+        else {
+            [System.IO.Path]::GetFullPath((Join-Path $paths.PipelinePath $ResultsPath))
+        }
+    }
+    else {
+        $summaryPath = Join-Path $paths.PipelinePath 'qaops-qaframework-results.json'
+    }
 
     try {
-        $configurationParameters = @{ TestPackageContentPath = $TestPackageContentPath }
-        foreach ($name in @('Keywords', 'ExcludeKeywords', 'Squads', 'ExcludeSquads')) {
-            if ($PSBoundParameters.ContainsKey($name)) { $configurationParameters[$name] = $PSBoundParameters[$name] }
+        $null = Install-QAFrameworkTool -PipelineDirectory $paths.PipelinePath
+        $requestPath = New-QAFrameworkRequestFile -Overrides $overrides -Directory $paths.PipelinePath
+
+        $arguments = @(
+            'run',
+            '--content',
+            $paths.ContentPath,
+            '--setup-timeout-seconds',
+            [string]$SetupTimeoutSeconds,
+            '--results',
+            $summaryPath
+        )
+        if ($configPathResolved) { $arguments += @('--config', $configPathResolved) }
+        if ($supplementaryPathResolved) { $arguments += @('--supplementary-path', $supplementaryPathResolved) }
+        if ($requestPath) { $arguments += @('--request-file', $requestPath) }
+        if ($SkipPublish) { $arguments += '--skip-publish' }
+
+        try {
+            $summary = Invoke-QAFrameworkToolJson -PipelineDirectory $paths.PipelinePath -Operation 'run' -Arguments $arguments
         }
-
-        $configuration = Get-QAFrameworkRunConfiguration @configurationParameters
-        Write-Verbose "Run configuration built from: $($configuration.sources -join ', ')."
-
-        $topology = Get-QAFrameworkClusterTopology
-        Write-Verbose "Cluster has $($topology.Agents.Count) DataMiner agent(s) and $($topology.FailoverPairs.Count) failover pair(s)."
-
-        $tests = @(Import-QAFrameworkTestMetadata -TestPackageContentPath $TestPackageContentPath)
-        Write-Verbose "Imported $($tests.Count) test(s)."
-
-        $selectionParameters = @{ Test = $tests; Configuration = $configuration; Topology = $topology }
-        if ($PSBoundParameters.ContainsKey('Customers')) { $selectionParameters['Customers'] = $Customers }
-
-        $selection = Select-QAFrameworkTest @selectionParameters
-        Write-Verbose "$($selection.Selected.Count) test(s) selected, $($selection.Dropped.Count) dropped."
-
-        $plan = New-QAFrameworkExecutionPlan -Test $selection.Selected -Topology $topology -Configuration $configuration
-
-        if (-not $SkipPublish) {
-            foreach ($dropped in @($selection.Dropped) + @($plan.Skipped)) {
-                $null = Publish-QAFrameworkTestResult -WorkItem ([pscustomobject]@{ Name = $dropped.Name; Outcome = 'NotExecuted'; Message = $dropped.Reason }) -Outcome 'NotExecuted' -Message $dropped.Reason
-            }
-        }
-
-        if (-not $SkipAgentSetup) {
-            Write-Verbose 'Preparing the DataMiner agents.'
-            $null = Initialize-QAFrameworkAgents -Topology $topology -Configuration $configuration -TestPackageContentPath $TestPackageContentPath
-        }
-
-        $run = Invoke-QAFrameworkTestRun -Plan $plan -Topology $topology -Configuration $configuration -TestPackageContentPath $TestPackageContentPath -SkipPublish:$SkipPublish
-
-        $duration = [DateTime]::UtcNow - $startedAt
-        $overallOutcome = if ($run.HasFailed) { 'Fail' } else { 'Ok' }
-        $overallMessage = 'Ok: {0}, Fail: {1}, NotApplicable: {2}, NotExecuted: {3}, dropped before the run: {4}.' -f `
-            $run.Summary.Ok, $run.Summary.Fail, $run.Summary.NotApplicable, $run.Summary.NotExecuted, (@($selection.Dropped).Count + @($plan.Skipped).Count)
-
-        Write-Host $overallMessage
-
-        if (-not $SkipPublish) {
-            try {
-                Push-TestCaseResult -Outcome $overallOutcome -Name $OverallResultName -Duration $duration -Message (Limit-String -stringToLimit $overallMessage -maxCharacters 2000) -TestAspect $overallResultTestAspect
-            }
-            catch {
-                Write-Warning "Could not publish the overall result: $($_.Exception.Message)"
-            }
+        catch {
+            throw [System.InvalidOperationException]::new(
+                "$($_.Exception.Message) Summary: $summaryPath",
+                $_.Exception)
         }
 
         if ($PassThru) {
-            return [pscustomobject]@{
-                Configuration = $configuration
-                Topology      = $topology
-                Selection     = $selection
-                Plan          = $plan
-                Run           = $run
-                Outcome       = $overallOutcome
-                Duration      = $duration
-                Message       = $overallMessage
-            }
+            return $summary
         }
+
+        Write-Host ("QAFramework run {0}: {1} attempt(s), {2} skipped, {3} error(s). Summary: {4}" -f `
+            $summary.overallOutcome, @($summary.attempts).Count, @($summary.skipped).Count, @($summary.errors).Count, $summaryPath)
     }
-    catch {
-        $failure = $_
-        $duration = [DateTime]::UtcNow - $startedAt
-        $message = "QAFramework orchestration failed: $($failure.Exception.Message)"
-
-        if (-not $SkipPublish -and (Get-Command -Name 'Push-TestCaseResult' -ErrorAction SilentlyContinue)) {
-            try {
-                Push-TestCaseResult -Outcome 'Fail' -Name $OverallResultName -Duration $duration `
-                    -Message (Limit-String -stringToLimit $message -maxCharacters 2000) -TestAspect $overallResultTestAspect
-            }
-            catch {
-                Write-Warning "Could not publish the failed overall result: $($_.Exception.Message)"
-            }
+    finally {
+        if ($requestPath -and (Test-Path -LiteralPath $requestPath -PathType Leaf)) {
+            Remove-Item -LiteralPath $requestPath -Force
         }
-
-        throw $failure
     }
 }

@@ -71,13 +71,6 @@ Description = 'Shared QAOps pipeline functions for DataMiner automation and test
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = @(
     'Invoke-DotNetTestAndPublishResults',
-    'Import-QAFrameworkTestMetadata',
-    'Get-QAFrameworkRunConfiguration',
-    'Get-QAFrameworkClusterTopology',
-    'Select-QAFrameworkTest',
-    'New-QAFrameworkExecutionPlan',
-    'Publish-QAFrameworkTestResult',
-    'Invoke-QAFrameworkTestRun',
     'Initialize-QAFrameworkAgents',
     'Invoke-QAFrameworkTestPackage',
     'Invoke-QAFrameworkTestDiscovery'
@@ -87,50 +80,23 @@ FunctionsToExport = @(
 FileList = @(
     'Skyline.DataMiner.QAOps.PipelineLibrary.psm1',
     'Skyline.DataMiner.QAOps.PipelineLibrary.psd1',
-    'Private/ConvertFrom-QAFrameworkAttributeBlock.ps1',
-    'Private/ConvertFrom-QAFrameworkAttributeValue.ps1',
-    'Private/ConvertFrom-QAFrameworkMetaFile.ps1',
-    'Private/ConvertTo-QAFrameworkBridgeFileVersion.ps1',
-    'Private/ConvertTo-QAFrameworkTestMetadata.ps1',
-    'Private/Copy-QAFrameworkDependency.ps1',
-    'Private/Get-QAFrameworkAttribute.ps1',
-    'Private/Get-QAFrameworkClassAttributeBlock.ps1',
-    'Private/Get-QAFrameworkExecutionOutcome.ps1',
-    'Private/Get-QAFrameworkDiagnosticTestAspect.ps1',
-    'Private/Get-QAFrameworkDiagnosticTestAspectFromFileVersionInfo.ps1',
-    'Private/Get-QAFrameworkMethodAttributeFlag.ps1',
-    'Private/Invoke-QAFrameworkFailoverSwitch.ps1',
-    'Private/Invoke-QAFrameworkLogCollection.ps1',
-    'Private/Join-QAFrameworkAgentPath.ps1',
+    'Private/ConvertFrom-QAFrameworkLegacyDiscoveryConfig.ps1',
+    'Private/Get-QAFrameworkPackageConfigInfo.ps1',
+    'Private/Install-QAFrameworkTool.ps1',
+    'Private/Invoke-QAFrameworkDotNet.ps1',
+    'Private/Invoke-QAFrameworkToolJson.ps1',
     'Private/Limit-String.ps1',
-    'Private/New-QAFrameworkAutomationScriptXml.ps1',
-    'Private/New-QAFrameworkExecutionCommand.ps1',
-    'Private/New-QAFrameworkTestMetadata.ps1',
-    'Private/Resolve-QAFrameworkTargetAgent.ps1',
-    'Private/Select-QAFrameworkNextWorkItem.ps1',
-    'Private/Split-QAFrameworkAttributeArgument.ps1',
-    'Private/Test-QAFrameworkHarvestFilter.ps1',
-    'Private/Test-QAFrameworkListMatch.ps1',
-    'Private/Test-QAFrameworkPreRunFilter.ps1',
-    'Private/Test-QAFrameworkSolutionCompatible.ps1',
-    'Private/Test-QAFrameworkVersionCompatible.ps1',
-    'Public/Get-QAFrameworkClusterTopology.ps1',
-    'Public/Get-QAFrameworkRunConfiguration.ps1',
-    'Public/Import-QAFrameworkTestMetadata.ps1',
+    'Private/New-QAFrameworkRequestFile.ps1',
+    'Private/Resolve-QAFrameworkContentPath.ps1',
+    'Private/Resolve-QAFrameworkPackageFilePath.ps1',
     'Public/Initialize-QAFrameworkAgents.ps1',
     'Public/Invoke-DotNetTestAndPublishResults.ps1',
     'Public/Invoke-QAFrameworkTestDiscovery.ps1',
     'Public/Invoke-QAFrameworkTestPackage.ps1',
-    'Public/Invoke-QAFrameworkTestRun.ps1',
-    'Public/New-QAFrameworkExecutionPlan.ps1',
-    'Public/Publish-QAFrameworkTestResult.ps1',
-    'Public/Select-QAFrameworkTest.ps1',
     'Templates/1.TestPackageSetup.sample.ps1',
     'Templates/2.TestPackageExecution.sample.ps1',
     'Templates/3.TestPackageFinalize.sample.ps1',
-    'Templates/Initialize-QAFrameworkAgent.ps1',
     'Templates/qaframework.config.sample.json',
-    'Templates/qaframework.discovery.sample.json',
     'Templates/qaframework.tests.sample.json',
     'Templates/TestDiscovery.sample.ps1'
 )
@@ -171,7 +137,7 @@ PrivateData = @{
         # IconUri = ''
 
         # ReleaseNotes of this module
-        ReleaseNotes = '0.1.0 - Added the QAFramework library: test discovery and harvesting, metadata import, run configuration, cluster topology, test selection, execution planning, the weight based scheduler with failover orchestration and result publishing. Every test runs through QAOps bridge executions, so a test package also works on a QAOps Bridge without DataMiner.'
+        ReleaseNotes = '0.1.0 - BREAKING: Replaced the QAFramework PowerShell implementation with the Skyline.DataMiner.QAOps.QAFrameworkOrchestrator dotnet tool. Kept the discovery, Agent setup, and test-package entry points as tool-backed shims; removed the low-level QAFramework cmdlets.'
 
         # Prerelease string of this module
         # Prerelease = ''
