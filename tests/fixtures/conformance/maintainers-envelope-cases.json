@@ -1,0 +1,283 @@
+{
+  "schema": "https://schema.skyline.be/qaops/conformance/producer-transport-v1/maintainers-envelope-cases",
+  "cases": [
+    {
+      "name": "valid-user",
+      "input": {
+        "version": 1,
+        "references": [
+          {
+            "kind": "user",
+            "id": null,
+            "alias": "jane.doe",
+            "source": "attribute",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          }
+        ]
+      },
+      "expectedBridgeOutcome": {
+        "resultAccepted": true,
+        "maintainersForwarded": true,
+        "maintainersError": null
+      }
+    },
+    {
+      "name": "valid-email-contact",
+      "input": {
+        "version": 1,
+        "references": [
+          {
+            "kind": "emailContact",
+            "id": "dev@example.com",
+            "alias": "dev@example.com",
+            "source": "git-author",
+            "provenance": "buildTimeFallback",
+            "resolution": "resolved"
+          }
+        ]
+      },
+      "expectedBridgeOutcome": {
+        "resultAccepted": true,
+        "maintainersForwarded": true,
+        "maintainersError": null
+      }
+    },
+    {
+      "name": "invalid-version",
+      "input": {
+        "version": 2,
+        "references": []
+      },
+      "expectedBridgeOutcome": {
+        "resultAccepted": true,
+        "maintainersForwarded": false,
+        "maintainersError": "invalidVersion"
+      }
+    },
+    {
+      "name": "too-many-references",
+      "input": {
+        "version": 1,
+        "references": [
+          {
+            "kind": "user",
+            "alias": "user0",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          },
+          {
+            "kind": "user",
+            "alias": "user1",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          },
+          {
+            "kind": "user",
+            "alias": "user2",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          },
+          {
+            "kind": "user",
+            "alias": "user3",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          },
+          {
+            "kind": "user",
+            "alias": "user4",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          },
+          {
+            "kind": "user",
+            "alias": "user5",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          },
+          {
+            "kind": "user",
+            "alias": "user6",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          },
+          {
+            "kind": "user",
+            "alias": "user7",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          },
+          {
+            "kind": "user",
+            "alias": "user8",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          },
+          {
+            "kind": "user",
+            "alias": "user9",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          },
+          {
+            "kind": "user",
+            "alias": "user10",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          },
+          {
+            "kind": "user",
+            "alias": "user11",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          },
+          {
+            "kind": "user",
+            "alias": "user12",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          },
+          {
+            "kind": "user",
+            "alias": "user13",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          },
+          {
+            "kind": "user",
+            "alias": "user14",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          },
+          {
+            "kind": "user",
+            "alias": "user15",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          },
+          {
+            "kind": "user",
+            "alias": "user16",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          },
+          {
+            "kind": "user",
+            "alias": "user17",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          },
+          {
+            "kind": "user",
+            "alias": "user18",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          },
+          {
+            "kind": "user",
+            "alias": "user19",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          },
+          {
+            "kind": "user",
+            "alias": "user20",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          }
+        ]
+      },
+      "expectedBridgeOutcome": {
+        "resultAccepted": true,
+        "maintainersForwarded": false,
+        "maintainersError": "tooManyReferences"
+      }
+    },
+    {
+      "name": "oversized-envelope",
+      "input": {
+        "version": 1,
+        "serializedUtf8Bytes": 8193,
+        "references": [
+          {
+            "kind": "user",
+            "alias": "large",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          }
+        ]
+      },
+      "expectedBridgeOutcome": {
+        "resultAccepted": true,
+        "maintainersForwarded": false,
+        "maintainersError": "maintainersOversized"
+      }
+    },
+    {
+      "name": "invalid-kind",
+      "input": {
+        "version": 1,
+        "references": [
+          {
+            "kind": "group",
+            "alias": "qa",
+            "id": null,
+            "source": "manual",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          }
+        ]
+      },
+      "expectedBridgeOutcome": {
+        "resultAccepted": true,
+        "maintainersForwarded": false,
+        "maintainersError": "invalidReference"
+      }
+    }
+  ]
+}

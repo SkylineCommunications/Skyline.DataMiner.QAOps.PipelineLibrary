@@ -1,0 +1,334 @@
+{
+  "schema": "https://schema.skyline.be/qaops/conformance/producer-transport-v1/runtime-lookup-vectors",
+  "canonicalKey": "<producer-namespace>|<test-identity>|data:<dataCaseId or empty>|target:<target or default>",
+  "vectors": [
+    {
+      "name": "exact-match",
+      "sidecarEntries": [
+        {
+          "key": "Tests.dll|Acme.Tests.Calculator.Add|data:case-1|target:agent-1",
+          "references": [
+            {
+              "alias": "exact-owner",
+              "kind": "user"
+            }
+          ]
+        }
+      ],
+      "runtimeResult": {
+        "assembly": "Tests.dll",
+        "fullyQualifiedName": "Acme.Tests.Calculator.Add",
+        "dataCaseId": "case-1",
+        "target": "agent-1",
+        "displayName": "Add(1,2)"
+      },
+      "expected": {
+        "matchedKey": "Tests.dll|Acme.Tests.Calculator.Add|data:case-1|target:agent-1",
+        "aliases": [
+          "exact-owner"
+        ],
+        "diagnostics": [],
+        "testInvocationId": "Tests.dll|Acme.Tests.Calculator.Add|data:case-1|target:agent-1"
+      }
+    },
+    {
+      "name": "data-case-fallback-to-method-level",
+      "sidecarEntries": [
+        {
+          "key": "Tests.dll|Acme.Tests.Calculator.Add|data:|target:default",
+          "references": [
+            {
+              "alias": "method-owner",
+              "kind": "user"
+            }
+          ]
+        }
+      ],
+      "runtimeResult": {
+        "assembly": "Tests.dll",
+        "fullyQualifiedName": "Acme.Tests.Calculator.Add",
+        "dataCaseId": "case-2",
+        "target": "default",
+        "displayName": "Add(2,3)"
+      },
+      "expected": {
+        "matchedKey": "Tests.dll|Acme.Tests.Calculator.Add|data:|target:default",
+        "aliases": [
+          "method-owner"
+        ],
+        "diagnostics": [],
+        "testInvocationId": "Tests.dll|Acme.Tests.Calculator.Add|data:case-2|target:default"
+      }
+    },
+    {
+      "name": "target-fallback-to-default",
+      "sidecarEntries": [
+        {
+          "key": "Tests.dll|Acme.Tests.Calculator.Add|data:case-3|target:default",
+          "references": [
+            {
+              "alias": "default-target-owner",
+              "kind": "user"
+            }
+          ]
+        }
+      ],
+      "runtimeResult": {
+        "assembly": "Tests.dll",
+        "fullyQualifiedName": "Acme.Tests.Calculator.Add",
+        "dataCaseId": "case-3",
+        "target": "agent-7",
+        "displayName": "Add(3,4)"
+      },
+      "expected": {
+        "matchedKey": "Tests.dll|Acme.Tests.Calculator.Add|data:case-3|target:default",
+        "aliases": [
+          "default-target-owner"
+        ],
+        "diagnostics": [],
+        "testInvocationId": "Tests.dll|Acme.Tests.Calculator.Add|data:case-3|target:agent-7"
+      }
+    },
+    {
+      "name": "conflict-at-same-specificity",
+      "sidecarEntries": [
+        {
+          "key": "Tests.dll|Acme.Tests.Calculator.Add|data:case-4|target:agent-1",
+          "references": [
+            {
+              "alias": "alice",
+              "kind": "user"
+            }
+          ]
+        },
+        {
+          "key": "Tests.dll|Acme.Tests.Calculator.Add|data:case-4|target:agent-1",
+          "references": [
+            {
+              "alias": "bob",
+              "kind": "user"
+            }
+          ]
+        }
+      ],
+      "runtimeResult": {
+        "assembly": "Tests.dll",
+        "fullyQualifiedName": "Acme.Tests.Calculator.Add",
+        "dataCaseId": "case-4",
+        "target": "agent-1",
+        "displayName": "Add(4,5)"
+      },
+      "expected": {
+        "matchedKey": null,
+        "aliases": [],
+        "diagnostics": [
+          {
+            "code": "maintainer-conflict",
+            "key": "Tests.dll|Acme.Tests.Calculator.Add|data:case-4|target:agent-1"
+          }
+        ],
+        "testInvocationId": "Tests.dll|Acme.Tests.Calculator.Add|data:case-4|target:agent-1"
+      }
+    },
+    {
+      "name": "display-name-only-must-not-match",
+      "sidecarEntries": [
+        {
+          "key": "Tests.dll|Acme.Tests.Other.Add|data:|target:default",
+          "displayName": "Add should add numbers",
+          "references": [
+            {
+              "alias": "wrong-owner",
+              "kind": "user"
+            }
+          ]
+        }
+      ],
+      "runtimeResult": {
+        "assembly": "Tests.dll",
+        "fullyQualifiedName": "Acme.Tests.Calculator.Add",
+        "dataCaseId": "",
+        "target": "default",
+        "displayName": "Add should add numbers"
+      },
+      "expected": {
+        "matchedKey": null,
+        "aliases": [],
+        "diagnostics": [
+          {
+            "code": "maintainers-not-found"
+          }
+        ],
+        "testInvocationId": "Tests.dll|Acme.Tests.Calculator.Add|data:|target:default"
+      }
+    },
+    {
+      "name": "assembly-mismatch-must-not-match",
+      "sidecarEntries": [
+        {
+          "key": "OtherTests.dll|Acme.Tests.Calculator.Add|data:|target:default",
+          "references": [
+            {
+              "alias": "wrong-assembly-owner",
+              "kind": "user"
+            }
+          ]
+        }
+      ],
+      "runtimeResult": {
+        "assembly": "Tests.dll",
+        "fullyQualifiedName": "Acme.Tests.Calculator.Add",
+        "dataCaseId": "",
+        "target": "default",
+        "displayName": "Add"
+      },
+      "expected": {
+        "matchedKey": null,
+        "aliases": [],
+        "diagnostics": [
+          {
+            "code": "maintainers-not-found"
+          }
+        ],
+        "testInvocationId": "Tests.dll|Acme.Tests.Calculator.Add|data:|target:default"
+      }
+    },
+    {
+      "name": "qaframework-runtime-agent-falls-back-to-default",
+      "sidecarEntries": [
+        {
+          "key": "qaframework|MemoryLeakTest|data:|target:default",
+          "references": [
+            {
+              "alias": "qa-maintainer",
+              "kind": "user"
+            },
+            {
+              "alias": "platform-squad",
+              "kind": "team"
+            }
+          ]
+        }
+      ],
+      "runtimeResult": {
+        "producerNamespace": "qaframework",
+        "testName": "MemoryLeakTest",
+        "dataCaseId": "",
+        "target": "bridge-01",
+        "iteration": 1,
+        "attempt": 1
+      },
+      "expected": {
+        "matchedKey": "qaframework|MemoryLeakTest|data:|target:default",
+        "aliases": [
+          "qa-maintainer",
+          "platform-squad"
+        ],
+        "diagnostics": [],
+        "testInvocationId": "qaframework|MemoryLeakTest|data:|target:bridge-01",
+        "attemptSemantics": "iteration/background/failover are attempts, not data cases"
+      }
+    },
+    {
+      "name": "qaframework-target-specific-match",
+      "sidecarEntries": [
+        {
+          "key": "qaframework|FailoverSwitchTest|data:|target:bridge-02",
+          "references": [
+            {
+              "alias": "failover-owner",
+              "kind": "user"
+            }
+          ]
+        },
+        {
+          "key": "qaframework|FailoverSwitchTest|data:|target:default",
+          "references": [
+            {
+              "alias": "default-owner",
+              "kind": "user"
+            }
+          ]
+        }
+      ],
+      "runtimeResult": {
+        "producerNamespace": "qaframework",
+        "testName": "FailoverSwitchTest",
+        "dataCaseId": "",
+        "target": "bridge-02",
+        "attempt": 1
+      },
+      "expected": {
+        "matchedKey": "qaframework|FailoverSwitchTest|data:|target:bridge-02",
+        "aliases": [
+          "failover-owner"
+        ],
+        "diagnostics": [],
+        "testInvocationId": "qaframework|FailoverSwitchTest|data:|target:bridge-02"
+      }
+    },
+    {
+      "name": "qaframework-stability-iteration-same-invocation-new-attempt",
+      "sidecarEntries": [
+        {
+          "key": "qaframework|StabilitySuiteTest|data:|target:default",
+          "references": [
+            {
+              "alias": "stability-owner",
+              "kind": "user"
+            }
+          ]
+        }
+      ],
+      "runtimeResult": {
+        "producerNamespace": "qaframework",
+        "testName": "StabilitySuiteTest",
+        "dataCaseId": "",
+        "target": "bridge-03",
+        "iteration": 5,
+        "backgroundPass": 2,
+        "attempt": 3
+      },
+      "expected": {
+        "matchedKey": "qaframework|StabilitySuiteTest|data:|target:default",
+        "aliases": [
+          "stability-owner"
+        ],
+        "diagnostics": [],
+        "testInvocationId": "qaframework|StabilitySuiteTest|data:|target:bridge-03",
+        "dataCaseId": "",
+        "attemptIdRequired": true
+      }
+    },
+    {
+      "name": "qaframework-wrong-namespace-must-not-match",
+      "sidecarEntries": [
+        {
+          "key": "Tests.dll|MemoryLeakTest|data:|target:default",
+          "references": [
+            {
+              "alias": "wrong-namespace-owner",
+              "kind": "user"
+            }
+          ]
+        }
+      ],
+      "runtimeResult": {
+        "producerNamespace": "qaframework",
+        "testName": "MemoryLeakTest",
+        "dataCaseId": "",
+        "target": "default"
+      },
+      "expected": {
+        "matchedKey": null,
+        "aliases": [],
+        "diagnostics": [
+          {
+            "code": "maintainers-not-found"
+          }
+        ],
+        "testInvocationId": "qaframework|MemoryLeakTest|data:|target:default"
+      }
+    }
+  ]
+}

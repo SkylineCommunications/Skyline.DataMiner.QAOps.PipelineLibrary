@@ -3,12 +3,10 @@ function Invoke-DotNetTestAndPublishResults {
     .SYNOPSIS
         Runs a .NET test assembly and publishes the results to QAOps.
     .DESCRIPTION
-        Executes the given test assembly with 'dotnet test' (or the Microsoft.Testing
-        Platform runner when -UsesMTP is true), writes a TRX result file into the test
-        package content folder and pushes one QAOps test case result per test case.
-
-        Tests that were not executed are published as NotExecuted unless
-        -PublishNotExecuted is disabled.
+        Executes the given test assembly with 'dotnet test' or Microsoft.Testing Platform,
+        requests TRX output, reads the generated results, enriches rows from the optional
+        maintainer sidecar, and pushes one QAOps test case result per TRX result. New Q
+        cmdlet parameters/cmdlets are used only when present, preserving old modules.
     .PARAMETER PathToTestPackageContent
         Root of the test package content; the TRX file is written underneath it.
     .PARAMETER TestDllPath
@@ -26,229 +24,144 @@ function Invoke-DotNetTestAndPublishResults {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $true)]
-        [string]$PathToTestPackageContent,
-
-        [Parameter(Mandatory = $true)]
-        [string]$TestDllPath,
-
-        [Parameter(Mandatory = $true)]
-        [string]$ResultsFileName,
-
-        [Parameter(Mandatory = $false)]
-        [string]$UsesMTP = "false",
-
-        [Parameter(Mandatory = $false)]
-        [string]$TestFilter,
-
-        [Parameter(Mandatory = $false)]
-        [bool]$PublishNotExecuted = $true
+        [Parameter(Mandatory = $true)][string]$PathToTestPackageContent,
+        [Parameter(Mandatory = $true)][string]$TestDllPath,
+        [Parameter(Mandatory = $true)][string]$ResultsFileName,
+        [Parameter(Mandatory = $false)][string]$UsesMTP = 'false',
+        [Parameter(Mandatory = $false)][string]$TestFilter,
+        [Parameter(Mandatory = $false)][bool]$PublishNotExecuted = $true
     )
 
+    function ConvertTo-QAOpsOutcomeMessage {
+        param([object]$Result)
+        if ($Result.Outcome -eq 'Passed') { return [pscustomobject]@{ Outcome='OK'; Message='Test passed.' } }
+        if ($Result.Outcome -eq 'NotExecuted') {
+            $m = if ([string]::IsNullOrWhiteSpace($Result.Message)) { 'Test was not executed.' } else { $Result.Message }
+            return [pscustomobject]@{ Outcome='NotExecuted'; Message=(Limit-String -stringToLimit $m -maxCharacters 2000) }
+        }
+        $msg = if ([string]::IsNullOrWhiteSpace($Result.Message)) { 'Test failed.' } else { $Result.Message }
+        [pscustomobject]@{ Outcome='Fail'; Message=(Limit-String -stringToLimit $msg -maxCharacters 2000) }
+    }
+
+    function Invoke-QAOpsCapabilityCommand {
+        param([string]$Name,[hashtable]$Parameters)
+        $cmd = Get-Command -Name $Name -ErrorAction SilentlyContinue
+        if ($null -eq $cmd) { return [pscustomobject]@{ Supported=$false; Accepted=$false; StatusCode=0; ErrorCode='cmdletMissing'; Message="$Name is not available." } }
+        try { & $Name @Parameters } catch { [pscustomobject]@{ Supported=$true; Accepted=$false; StatusCode=0; ErrorCode='terminatingError'; Message=$_.Exception.Message } }
+    }
+
     $usesMtpBool = $false
-    if (-not [string]::IsNullOrWhiteSpace($UsesMTP)) {
-        $usesMtpBool = $UsesMTP.Trim().ToLowerInvariant() -eq "true"
-    }
+    if (-not [string]::IsNullOrWhiteSpace($UsesMTP)) { $usesMtpBool = $UsesMTP.Trim().ToLowerInvariant() -eq 'true' }
+    if (-not (Test-Path -LiteralPath $TestDllPath -PathType Leaf)) { throw "Test assembly not found: $TestDllPath" }
 
-    if (-not (Test-Path -Path $TestDllPath)) {
-        throw "Test assembly not found: $TestDllPath"
-    }
+    $contentPath = (Resolve-Path -LiteralPath $PathToTestPackageContent -ErrorAction Stop).ProviderPath
+    $resultsPath = Join-Path $contentPath $ResultsFileName
+    $isExe = [System.IO.Path]::GetExtension($TestDllPath).Equals('.exe', [System.StringComparison]::OrdinalIgnoreCase)
+    $assemblyName = [System.IO.Path]::GetFileName($TestDllPath)
+    $attemptId = New-QAOpsUlid
+    $publisherErrors = New-Object System.Collections.ArrayList
+    $acceptedCount = 0
+    $manifestSupported = $true
+    $finalizationSupported = $true
 
-    $resultsPath = Join-Path $PathToTestPackageContent $ResultsFileName
-    $isExe = [System.IO.Path]::GetExtension($TestDllPath).Equals(".exe", [System.StringComparison]::OrdinalIgnoreCase)
-
-    if (Test-Path -Path $resultsPath) {
-        Remove-Item -Path $resultsPath -Force
-    }
+    if (Test-Path -LiteralPath $resultsPath -PathType Leaf) { Remove-Item -LiteralPath $resultsPath -Force }
 
     try {
         $executionStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
         if ($isExe) {
             $trxFileName = $ResultsFileName
             $exeDirectory = Split-Path -Path $TestDllPath -Parent
-            $expectedTrxPath = Join-Path $exeDirectory ("TestResults\" + $trxFileName)
+            $expectedTrxPath = Join-Path (Join-Path $exeDirectory 'TestResults') $trxFileName
             $arguments = @('--report-trx', '--report-trx-filename', $trxFileName)
-            if (-not [string]::IsNullOrWhiteSpace($TestFilter)) {
-                $arguments = @('--filter', $TestFilter) + $arguments
-            }
-
+            if (-not [string]::IsNullOrWhiteSpace($TestFilter)) { $arguments = @('--filter', $TestFilter) + $arguments }
             Write-Host "Executing test executable with TRX output: `"$TestDllPath`"" -ForegroundColor Cyan
-            if (-not [string]::IsNullOrWhiteSpace($TestFilter)) {
-                Write-Host "Applying test filter: $TestFilter" -ForegroundColor Cyan
-            }
-
             & $TestDllPath @arguments
-
-            if ($LASTEXITCODE -ne 0) {
-                Write-Warning "Test executable returned exit code $LASTEXITCODE for $TestDllPath (will be reported from TRX)."
-            }
-
-            if (-not (Test-Path -Path $expectedTrxPath)) {
-                throw "Expected TRX file was not created at: $expectedTrxPath"
-            }
-
-            Copy-Item -Path $expectedTrxPath -Destination $resultsPath -Force
+            if ($LASTEXITCODE -ne 0) { Write-Warning "Test executable returned exit code $LASTEXITCODE for $TestDllPath (will be reported from TRX)." }
+            if (-not (Test-Path -LiteralPath $expectedTrxPath -PathType Leaf)) { Write-Warning "Expected TRX file was not created at: $expectedTrxPath" } else { Copy-Item -LiteralPath $expectedTrxPath -Destination $resultsPath -Force }
         }
         elseif ($usesMtpBool) {
             Write-Host "Executing: dotnet test --test-modules `"$TestDllPath`"" -ForegroundColor Cyan
-
-            $arguments = @('test', '--test-modules', $TestDllPath)
-            if (-not [string]::IsNullOrWhiteSpace($TestFilter)) {
-                $arguments += @('--filter', $TestFilter)
-            }
-
+            $arguments = @('test','--test-modules',$TestDllPath,'--report-trx','--report-trx-filename',$ResultsFileName)
+            if (-not [string]::IsNullOrWhiteSpace($TestFilter)) { $arguments += @('--filter',$TestFilter) }
             & dotnet @arguments
-
-            if ($LASTEXITCODE -ne 0) {
-                throw "dotnet test --test-modules failed with exit code $LASTEXITCODE for expression/path: $TestDllPath"
-            }
-
-            return
+            if ($LASTEXITCODE -ne 0) { Write-Warning "dotnet test --test-modules returned exit code $LASTEXITCODE for $TestDllPath (will be reported from TRX)." }
+            $candidate = Join-Path (Join-Path (Split-Path -Path $TestDllPath -Parent) 'TestResults') $ResultsFileName
+            if (Test-Path -LiteralPath $candidate -PathType Leaf) { Copy-Item -LiteralPath $candidate -Destination $resultsPath -Force }
+            elseif (-not (Test-Path -LiteralPath $resultsPath -PathType Leaf)) { Write-Warning 'MTP did not produce the requested TRX file. Install Microsoft.Testing.Extensions.TrxReport and ensure --report-trx is supported.' }
         }
         else {
             Write-Host "Executing: dotnet test `"$TestDllPath`"" -ForegroundColor Cyan
-            $arguments = @('test', $TestDllPath, '--logger', "trx;LogFileName=$resultsPath")
-            if (-not [string]::IsNullOrWhiteSpace($TestFilter)) {
-                $arguments += @('--filter', $TestFilter)
-            }
-
+            $arguments = @('test',$TestDllPath,'--logger',("trx;LogFileName=$resultsPath"))
+            if (-not [string]::IsNullOrWhiteSpace($TestFilter)) { $arguments += @('--filter',$TestFilter) }
             & dotnet @arguments
-
-            if ($LASTEXITCODE -ne 0) {
-                Write-Warning "dotnet test returned exit code $LASTEXITCODE for $TestDllPath (will be reported from TRX)."
-            }
+            if ($LASTEXITCODE -ne 0) { Write-Warning "dotnet test returned exit code $LASTEXITCODE for $TestDllPath (will be reported from TRX)." }
         }
-
         $executionStopwatch.Stop()
         Write-Host "Test execution completed in $($executionStopwatch.Elapsed)." -ForegroundColor Cyan
+        if (-not (Test-Path -LiteralPath $resultsPath -PathType Leaf)) { throw "Expected TRX results file was not created: $resultsPath" }
 
-        if (-not (Test-Path -Path $resultsPath)) {
-            throw "Expected TRX results file was not created: $resultsPath"
+        $sidecar = Import-QAOpsMaintainerSidecar -ContentPath $contentPath
+        $rows = @(Get-QAOpsTrxResult -ResultsPath $resultsPath -AssemblyName $assemblyName)
+        if ($rows.Count -eq 0) { throw "No UnitTestResult nodes found in TRX: $resultsPath" }
+        $enriched = New-Object System.Collections.ArrayList
+        foreach ($row in $rows) {
+            $lookup = Resolve-QAOpsRuntimeMaintainers -Entries $sidecar.Entries -Assembly $row.Assembly -FullyQualifiedName $row.FullyQualifiedName -DataCaseId $row.DataCaseId -Target 'default'
+            foreach ($diag in @($lookup.Diagnostics)) { if ($diag.code -eq 'maintainer-conflict') { Write-Warning "Maintainer conflict for $($diag.key); publishing without maintainers." } }
+            [void]$enriched.Add([pscustomobject]@{ Result=$row; Lookup=$lookup; ProducerEventId=New-QAOpsUlid })
         }
 
-        [xml]$trx = Get-Content -Path $resultsPath -Raw
-
-        $ns = New-Object System.Xml.XmlNamespaceManager($trx.NameTable)
-        $ns.AddNamespace('t', 'http://microsoft.com/schemas/VisualStudio/TeamTest/2010')
-
-        $unitResults = $trx.SelectNodes('//t:UnitTestResult', $ns)
-        if (-not $unitResults) {
-            throw "No UnitTestResult nodes found in TRX: $resultsPath"
+        if ($manifestSupported) {
+            $invocations = @($enriched | ForEach-Object { [pscustomobject]@{ testInvocationId=$_.Lookup.TestInvocationId; displayName=$_.Result.DisplayName; maintainers=$_.Lookup.Maintainers } })
+            $manifestParams = @{ CountSemanticsVersion='qaops-counts-v1'; ExpectedTests=$invocations.Count; DiscoveredTests=$invocations.Count; TestInvocations=$invocations }
+            $manifestResult = Invoke-QAOpsCapabilityCommand -Name 'Push-TestRunManifest' -Parameters $manifestParams
+            if ($manifestResult -and $manifestResult.PSObject.Properties.Name -contains 'Supported' -and -not $manifestResult.Supported) { $manifestSupported = $false }
+            elseif ($manifestResult -and $manifestResult.PSObject.Properties.Name -contains 'Accepted' -and -not $manifestResult.Accepted) { [void]$publisherErrors.Add([pscustomobject]@{ testInvocationId=$null; code='PushTestRunManifestNotAccepted'; message=(Limit-String -stringToLimit ([string]$manifestResult.Message) -maxCharacters 1024) }) }
         }
 
-        Write-Host "Publishing $($unitResults.Count) TRX test result(s) to QAOps." -ForegroundColor Cyan
-        $publishedCount = 0
-        $skippedNotExecutedCount = 0
-        $publishStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-        foreach ($r in $unitResults) {
-            $testName = $r.GetAttribute('testName')
-            $outcome = $r.GetAttribute('outcome')
-
-            if ([string]::IsNullOrWhiteSpace($testName)) {
-                $testName = $r.GetAttribute('testId')
-            }
-
-            $duration = [TimeSpan]::Zero
-            $durationAttribute = $r.GetAttribute('duration')
-            if (-not [string]::IsNullOrWhiteSpace($durationAttribute)) {
-                $parsed = [TimeSpan]::Zero
-                if ([TimeSpan]::TryParse($durationAttribute, [ref]$parsed)) {
-                    $duration = $parsed
-                }
-            }
-
-            if ($outcome -eq 'Passed') {
+        Write-Host "Publishing $($rows.Count) TRX test result(s) to QAOps." -ForegroundColor Cyan
+        $caseCommand = Get-Command -Name Push-TestCaseResult -ErrorAction SilentlyContinue
+        if ($null -eq $caseCommand) { Write-Warning 'Push-TestCaseResult is not available; results cannot be published.' }
+        foreach ($item in $enriched) {
+            $r = $item.Result
+            if ($r.Outcome -eq 'NotExecuted' -and -not $PublishNotExecuted) { continue }
+            $om = ConvertTo-QAOpsOutcomeMessage -Result $r
+            $parameters = @{ Outcome=$om.Outcome; Name=$r.DisplayName; Duration=$r.Duration; Message=$om.Message; TestAspect='Assertion' }
+            if ($caseCommand) {
+                $supportedParams = $caseCommand.Parameters
+                if ($supportedParams.ContainsKey('ProducerEventId')) { $parameters['ProducerEventId'] = $item.ProducerEventId }
+                if ($supportedParams.ContainsKey('TestInvocationId')) { $parameters['TestInvocationId'] = $item.Lookup.TestInvocationId }
+                if ($supportedParams.ContainsKey('AttemptId')) { $parameters['AttemptId'] = $attemptId }
+                $maintainerValidation = Test-QAOpsMaintainerEnvelope -Maintainers $item.Lookup.Maintainers
+                if ($supportedParams.ContainsKey('Maintainers') -and $maintainerValidation.Valid) { $parameters['Maintainers'] = $maintainerValidation.Json }
+                elseif ($item.Lookup.Maintainers -and -not $maintainerValidation.Valid) { Write-Warning "Dropping invalid maintainer envelope for $($item.Lookup.TestInvocationId): $($maintainerValidation.Code)" }
                 try {
-                    Push-TestCaseResult -Outcome 'OK' -Name $testName -Duration $duration -Message "Test passed." -TestAspect Assertion
-                    $publishedCount++
+                    $pushResult = Push-TestCaseResult @parameters
+                    $accepted = $true
+                    if ($pushResult -and $pushResult.PSObject.Properties.Name -contains 'Accepted') { $accepted = [bool]$pushResult.Accepted }
+                    if ($accepted) { $acceptedCount++ } else { [void]$publisherErrors.Add([pscustomobject]@{ testInvocationId=$item.Lookup.TestInvocationId; code='PushTestCaseResultNotAccepted'; message=(Limit-String -stringToLimit ([string]$pushResult.Message) -maxCharacters 1024) }); Write-Warning "Push-TestCaseResult was not accepted for $($item.Lookup.TestInvocationId)." }
                 }
                 catch {
-                    Write-Host "Skipped Push for OK on $testName"
+                    if ($parameters.ContainsKey('Maintainers') -and $_.Exception.Message -match 'maintain') {
+                        Write-Warning "Push-TestCaseResult rejected maintainer metadata for $($item.Lookup.TestInvocationId); retrying without maintainers."
+                        $parameters.Remove('Maintainers')
+                        try { $pushResult = Push-TestCaseResult @parameters; $acceptedCount++ }
+                        catch { [void]$publisherErrors.Add([pscustomobject]@{ testInvocationId=$item.Lookup.TestInvocationId; code='PushTestCaseResultFailed'; message=(Limit-String -stringToLimit $_.Exception.Message -maxCharacters 1024) }); Write-Warning "Push-TestCaseResult failed for $($item.Lookup.TestInvocationId): $($_.Exception.Message)" }
+                    } else { [void]$publisherErrors.Add([pscustomobject]@{ testInvocationId=$item.Lookup.TestInvocationId; code='PushTestCaseResultFailed'; message=(Limit-String -stringToLimit $_.Exception.Message -maxCharacters 1024) }); Write-Warning "Push-TestCaseResult failed for $($item.Lookup.TestInvocationId): $($_.Exception.Message)" }
                 }
-
-                continue
-            }
-
-            if (($outcome -eq 'Failed') -or ($outcome -eq 'Error') -or ($outcome -eq 'Timeout') -or ($outcome -eq 'Aborted')) {
-                $messageNode = $r.SelectSingleNode('t:Output/t:ErrorInfo/t:Message', $ns)
-                $stackNode = $r.SelectSingleNode('t:Output/t:ErrorInfo/t:StackTrace', $ns)
-
-                if ($messageNode -and -not [string]::IsNullOrWhiteSpace($messageNode.InnerText)) {
-                    $msg = $messageNode.InnerText.Trim()
-                }
-                else {
-                    $msg = "Test failed."
-                }
-
-                if ($stackNode -and -not [string]::IsNullOrWhiteSpace($stackNode.InnerText)) {
-                    $msg = $msg + "`n" + $stackNode.InnerText.Trim()
-                }
-
-                if (Get-Command -Name Limit-String -ErrorAction SilentlyContinue) {
-                    $msg = Limit-String -stringToLimit $msg -maxCharacters 2000
-                }
-
-                try {
-                    Push-TestCaseResult -Outcome 'Fail' -Name $testName -Duration $duration -Message $msg -TestAspect Assertion
-                    $publishedCount++
-                }
-                catch {
-                    Write-Host "Skipped Push for Fail on $testName"
-                }
-
-                continue
-            }
-
-            if ($outcome -eq 'NotExecuted') {
-                if (-not $PublishNotExecuted) {
-                    $skippedNotExecutedCount++
-                    continue
-                }
-
-                $messageNode = $r.SelectSingleNode('t:Output/t:ErrorInfo/t:Message', $ns)
-
-                if ($messageNode -and -not [string]::IsNullOrWhiteSpace($messageNode.InnerText)) {
-                    $msg = $messageNode.InnerText.Trim()
-                }
-                else {
-                    $msg = "Test was not executed."
-                }
-
-                if (Get-Command -Name Limit-String -ErrorAction SilentlyContinue) {
-                    $msg = Limit-String -stringToLimit $msg -maxCharacters 2000
-                }
-
-                try {
-                    Push-TestCaseResult -Outcome 'NotExecuted' -Name $testName -Duration $duration -Message $msg -TestAspect Assertion
-                    $publishedCount++
-                }
-                catch {
-                    Write-Host "Skipped Push for NotExecuted on $testName"
-                }
-
-                continue
-            }
-
-            try {
-                Push-TestCaseResult -Outcome 'Fail' -Name $testName -Duration $duration -Message "Unhandled test outcome '$outcome'." -TestAspect Assertion
-                $publishedCount++
-            }
-            catch {
-                Write-Host "Skipped Push for Fail on $testName"
             }
         }
 
-        $publishStopwatch.Stop()
-        Write-Host "Published $publishedCount QAOps assertion result(s) in $($publishStopwatch.Elapsed). Skipped NotExecuted result(s): $skippedNotExecutedCount." -ForegroundColor Cyan
+        if ($finalizationSupported) {
+            $errorsForFinalization = @($publisherErrors | Select-Object -First 100)
+            $finalResult = Invoke-QAOpsCapabilityCommand -Name 'Push-TestRunFinalization' -Parameters @{ PublishedResultCount=$acceptedCount; PublisherErrors=$errorsForFinalization }
+            if ($finalResult -and $finalResult.PSObject.Properties.Name -contains 'Supported' -and -not $finalResult.Supported) { $finalizationSupported = $false }
+            elseif ($finalResult -and $finalResult.PSObject.Properties.Name -contains 'Accepted' -and -not $finalResult.Accepted) { Write-Warning "Push-TestRunFinalization was not accepted: $($finalResult.Message)" }
+        }
+        Write-Host "Published $acceptedCount QAOps assertion result(s). Publisher error(s): $($publisherErrors.Count)." -ForegroundColor Cyan
     }
     finally {
-        if ((-not $usesMtpBool) -and (Test-Path -Path $resultsPath)) {
-            try {
-                Remove-Item -Path $resultsPath -Force
-            }
-            catch {
-                Write-Warning "Failed to cleanup test output file: $resultsPath. $($_.Exception.Message)"
-            }
+        if (Test-Path -LiteralPath $resultsPath -PathType Leaf) {
+            try { Remove-Item -LiteralPath $resultsPath -Force } catch { Write-Warning "Failed to cleanup test output file: $resultsPath. $($_.Exception.Message)" }
         }
     }
 }

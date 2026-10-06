@@ -88,6 +88,9 @@ FileList = @(
     'Private/Invoke-QAFrameworkToolJson.ps1',
     'Private/Limit-String.ps1',
     'Private/New-QAFrameworkRequestFile.ps1',
+    'Private/New-QAOpsUlid.ps1',
+    'Private/QAOpsMaintainers.ps1',
+    'Private/Get-QAOpsTrxResult.ps1',
     'Private/Resolve-QAFrameworkContentPath.ps1',
     'Private/Resolve-QAFrameworkPackageFilePath.ps1',
     'Public/Initialize-QAFrameworkAgents.ps1',
@@ -162,3 +165,4 @@ PrivateData = @{
 # DefaultCommandPrefix = ''
 
 }
+

@@ -1,0 +1,207 @@
+{
+  "schema": "https://schema.skyline.be/qaops/conformance/producer-transport-v1/sidecar-examples",
+  "cases": [
+    {
+      "name": "declared-attribute",
+      "input": {
+        "source": "attribute",
+        "framework": "MSTest",
+        "assembly": "Tests.dll",
+        "fullyQualifiedName": "Acme.Tests.LoginTests.Passes",
+        "dataCaseId": null,
+        "maintainers": {
+          "version": 1,
+          "references": [
+            {
+              "kind": "user",
+              "id": null,
+              "alias": "jane.doe",
+              "displayName": "Jane Doe",
+              "source": "attribute",
+              "provenance": "declared",
+              "resolution": "unresolved"
+            }
+          ]
+        }
+      },
+      "expectedNormalized": {
+        "testInvocationId": "Tests.dll|Acme.Tests.LoginTests.Passes|data:|target:default",
+        "references": [
+          {
+            "kind": "user",
+            "id": null,
+            "alias": "jane.doe",
+            "displayName": "Jane Doe",
+            "source": "attribute",
+            "provenance": "declared",
+            "resolution": "unresolved"
+          }
+        ],
+        "diagnostics": []
+      }
+    },
+    {
+      "name": "git-fallback-email",
+      "input": {
+        "source": "git-author",
+        "authorName": "Dev One",
+        "authorEmail": "dev.one@example.com",
+        "commitSha": "1111111111111111111111111111111111111111",
+        "sourcePath": "tests/LoginTests.cs"
+      },
+      "expectedNormalized": {
+        "references": [
+          {
+            "kind": "emailContact",
+            "id": "dev.one@example.com",
+            "alias": "dev.one@example.com",
+            "displayName": "Dev One",
+            "source": "git-author",
+            "provenance": "buildTimeFallback",
+            "resolution": "resolved",
+            "commitSha": "1111111111111111111111111111111111111111",
+            "sourcePath": "tests/LoginTests.cs"
+          }
+        ],
+        "diagnostics": []
+      }
+    },
+    {
+      "name": "noreply-unresolved",
+      "input": {
+        "source": "git-author",
+        "authorName": "Jane Doe",
+        "authorEmail": "12345+jane-doe@users.noreply.github.com",
+        "commitSha": "2222222222222222222222222222222222222222",
+        "sourcePath": "tests/LoginTests.cs"
+      },
+      "expectedNormalized": {
+        "references": [
+          {
+            "kind": "user",
+            "id": null,
+            "alias": "jane-doe",
+            "displayName": "jane-doe",
+            "githubLogin": "jane-doe",
+            "source": "git-author",
+            "provenance": "buildTimeFallback",
+            "resolution": "unresolved",
+            "reason": "not-found",
+            "commitSha": "2222222222222222222222222222222222222222",
+            "sourcePath": "tests/LoginTests.cs"
+          }
+        ],
+        "diagnostics": [
+          "github-noreply-unresolved"
+        ]
+      }
+    },
+    {
+      "name": "noreply-resolved-commit-attribution",
+      "input": {
+        "login": "jane-doe",
+        "noreply": "12345+jane-doe@users.noreply.github.com",
+        "commitLookupEmail": "jane.doe@example.com",
+        "allowedDomains": [
+          "example.com"
+        ]
+      },
+      "expectedNormalized": {
+        "references": [
+          {
+            "kind": "emailContact",
+            "id": "jane.doe@example.com",
+            "alias": "jane.doe@example.com",
+            "displayName": "jane-doe",
+            "githubLogin": "jane-doe",
+            "source": "git-author",
+            "provenance": "github-commit-attribution",
+            "resolution": "resolved"
+          }
+        ],
+        "diagnostics": []
+      }
+    },
+    {
+      "name": "noreply-resolved-public-profile",
+      "input": {
+        "login": "john-doe",
+        "noreply": "john-doe@users.noreply.github.com",
+        "commitLookupEmail": null,
+        "profileEmail": "john.doe@example.com",
+        "allowedDomains": [
+          "example.com"
+        ]
+      },
+      "expectedNormalized": {
+        "references": [
+          {
+            "kind": "emailContact",
+            "id": "john.doe@example.com",
+            "alias": "john.doe@example.com",
+            "displayName": "john-doe",
+            "githubLogin": "john-doe",
+            "source": "git-author",
+            "provenance": "github-public-profile",
+            "resolution": "resolved"
+          }
+        ],
+        "diagnostics": []
+      }
+    },
+    {
+      "name": "framework-conflict-keyed-merge",
+      "input": {
+        "assembly": "Tests.dll",
+        "fullyQualifiedName": "Acme.Tests.Conflicting.Owner",
+        "frameworkDeclarations": [
+          {
+            "framework": "MSTest",
+            "alias": "alice"
+          },
+          {
+            "framework": "xUnit",
+            "alias": "bob"
+          }
+        ]
+      },
+      "expectedNormalized": {
+        "references": [],
+        "diagnostics": [
+          {
+            "code": "maintainer-conflict",
+            "key": "Tests.dll|Acme.Tests.Conflicting.Owner|data:|target:default",
+            "aliases": [
+              "alice",
+              "bob"
+            ]
+          }
+        ],
+        "merge": "explicit-conflict-never-last-writer-wins"
+      }
+    },
+    {
+      "name": "invalid-oversized",
+      "input": {
+        "maintainersSerializedUtf8Bytes": 9000,
+        "references": 21
+      },
+      "expectedNormalized": {
+        "references": [],
+        "diagnostics": [
+          {
+            "code": "maintainers-oversized"
+          },
+          {
+            "code": "too-many-references"
+          }
+        ],
+        "bridgeOutcome": {
+          "accepted": true,
+          "maintainersForwarded": false,
+          "maintainersError": "maintainersInvalid"
+        }
+      }
+    }
+  ]
+}

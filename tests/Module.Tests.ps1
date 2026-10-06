@@ -52,7 +52,7 @@ Describe 'Module manifest' {
                 (Join-Path $script:RepoRoot 'Templates')
             ) -File -Recurse |
                 ForEach-Object {
-                    [System.IO.Path]::GetRelativePath($script:RepoRoot, $_.FullName).Replace('\', '/')
+                    $_.FullName.Substring($script:RepoRoot.Length + 1).Replace('\', '/')
                 }
         )
 
@@ -87,4 +87,5 @@ Describe 'Public function documentation' {
         $help.Description | Should -Not -BeNullOrEmpty
     }
 }
+
 

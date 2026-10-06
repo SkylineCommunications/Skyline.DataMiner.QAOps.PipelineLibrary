@@ -1,0 +1,137 @@
+{
+  "schema": "https://schema.skyline.be/qaops/conformance/producer-transport-v1/precedence-merge-vectors",
+  "vectors": [
+    {
+      "name": "framework-beats-reviewed-manifest-and-git",
+      "inputs": {
+        "framework": [
+          {
+            "alias": "framework-owner",
+            "source": "attribute"
+          }
+        ],
+        "reviewedManifest": [
+          {
+            "alias": "manifest-owner",
+            "source": "reviewed-manifest"
+          }
+        ],
+        "gitFallback": [
+          {
+            "alias": "git@example.com",
+            "source": "git-author"
+          }
+        ]
+      },
+      "expected": {
+        "chosenAliases": [
+          "framework-owner"
+        ],
+        "discardedSources": [
+          "reviewed-manifest",
+          "git-author"
+        ]
+      }
+    },
+    {
+      "name": "reviewed-manifest-beats-git",
+      "inputs": {
+        "framework": [],
+        "reviewedManifest": [
+          {
+            "alias": "manifest-owner",
+            "source": "reviewed-manifest"
+          }
+        ],
+        "gitFallback": [
+          {
+            "alias": "git@example.com",
+            "source": "git-author"
+          }
+        ]
+      },
+      "expected": {
+        "chosenAliases": [
+          "manifest-owner"
+        ],
+        "discardedSources": [
+          "git-author"
+        ]
+      }
+    },
+    {
+      "name": "git-used-when-no-declaration",
+      "inputs": {
+        "framework": [],
+        "reviewedManifest": [],
+        "gitFallback": [
+          {
+            "alias": "git@example.com",
+            "source": "git-author"
+          }
+        ]
+      },
+      "expected": {
+        "chosenAliases": [
+          "git@example.com"
+        ],
+        "discardedSources": []
+      }
+    },
+    {
+      "name": "runtime-overrides-packaged-git-fallback",
+      "inputs": {
+        "runtime": [
+          {
+            "alias": "runtime-owner",
+            "source": "manual",
+            "provenance": "runtime"
+          }
+        ],
+        "packagedGitFallback": [
+          {
+            "alias": "git@example.com",
+            "source": "git-author"
+          }
+        ]
+      },
+      "expected": {
+        "chosenAliases": [
+          "runtime-owner"
+        ],
+        "discardedSources": [
+          "git-author"
+        ]
+      }
+    },
+    {
+      "name": "keyed-merge-conflict",
+      "inputs": {
+        "records": [
+          {
+            "key": "Tests.dll|Acme.Tests.Owner|data:1|target:default",
+            "alias": "alice"
+          },
+          {
+            "key": "Tests.dll|Acme.Tests.Owner|data:1|target:default",
+            "alias": "bob"
+          }
+        ]
+      },
+      "expected": {
+        "chosenAliases": [],
+        "diagnostics": [
+          {
+            "code": "maintainer-conflict",
+            "key": "Tests.dll|Acme.Tests.Owner|data:1|target:default",
+            "aliases": [
+              "alice",
+              "bob"
+            ]
+          }
+        ],
+        "merge": "explicit-conflict-never-last-writer-wins"
+      }
+    }
+  ]
+}
