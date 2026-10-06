@@ -87,3 +87,4 @@ Describe 'Public function documentation' {
         $help.Description | Should -Not -BeNullOrEmpty
     }
 }
+

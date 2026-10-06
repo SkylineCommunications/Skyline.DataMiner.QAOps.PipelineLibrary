@@ -63,6 +63,14 @@ The migration removes these low-level exports: `Import-QAFrameworkTestMetadata`,
 
 The QAFramework shims do not depend on `QAOps.PowerShell`. `Invoke-DotNetTestAndPublishResults` remains a separate function and continues to use the QAOps result-publishing cmdlets.
 
+
+## Invoke-DotNetTestHarvesting
+
+`Invoke-DotNetTestHarvesting` is the build-time wrapper for `.NET` maintainer metadata. It calls the QAFramework Orchestrator `harvest-dotnet` command, writes/updates `TestHarvesting\dependencies.generated\qaops.maintainers.json`, and returns the tool JSON report.
+
+The wrapper installs the tool into a per-user cache outside the test package. If `dotnet`, NuGet, the tool, `harvest-dotnet`, or JSON output is unavailable, it returns a `status = skipped` report with one warning and never fails the package build because of maintainer metadata. A GitHub token, when supplied, is passed only to the child process as `QAOPS_GITHUB_TOKEN`.
+
+Copy `Templates/TestDiscovery.DotNet.sample.ps1` into `TestHarvesting\TestDiscovery.ps1` after the test binaries are copied to `TestHarvesting\tests.generated`.
 ## Invoke-DotNetTestAndPublishResults
 
 Runs `dotnet test` for a given test assembly, reads the generated `.trx` file, and publishes individual test results through `Push-TestCaseResult`.
@@ -130,3 +138,4 @@ pwsh -NoProfile -Command "Import-Module Pester -MinimumVersion 5.0; Invoke-Peste
 - Keep functions focused and free of repository-specific paths.
 - Runtime functions must work on a Linux orchestrator. Use `Join-Path` and do not assume `C:\`.
 - Keep DataMiner Agent-only behavior inside the orchestrator.
+
