@@ -80,3 +80,4 @@ Describe 'Invoke-DotNetTestAndPublishResults runtime publishing' {
         }
     }
 }
+
