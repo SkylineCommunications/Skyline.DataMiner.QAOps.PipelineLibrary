@@ -81,3 +81,69 @@ Describe 'Invoke-DotNetTestAndPublishResults runtime publishing' {
     }
 }
 
+
+Describe 'TRX fixture identity extraction matrix' {
+    It 'extracts identities and data cases from scrubbed <_> fixture' -ForEach @(
+        'mstest3-vstest.trx','nunit4-vstest.trx','xunit2-vstest.trx','xunit3-vstest.trx','mstest3-mtp.trx'
+    ) {
+        $fixtureName = $_
+        InModuleScope Skyline.DataMiner.QAOps.PipelineLibrary -Parameters @{ RepoRoot = $script:RepoRoot; FixtureName = $fixtureName } {
+            $framework = $FixtureName.Split('-')[0]
+            $rows = @(Get-QAOpsTrxResult -ResultsPath (Join-Path $RepoRoot (Join-Path 'tests\fixtures\trx' $FixtureName)) -AssemblyName "$framework.Tests.dll")
+            $rows.Count | Should -Be 8
+            ($rows | Where-Object FullyQualifiedName -eq "Fixtures.$framework.ParameterizedTests.Adds" | Select-Object -First 1).DataCaseId | Should -Be '(1, 2, expected: 3)'
+            ($rows | Where-Object FullyQualifiedName -eq "Fixtures.$framework.ParameterizedTests.ExplicitData" | Select-Object -First 1).DataCaseId | Should -Be 'row:explicit-42'
+            @($rows | Where-Object DisplayName -eq 'same display').FullyQualifiedName | Should -Be @("Fixtures.$framework.DuplicateA.SameDisplay", "Fixtures.$framework.DuplicateB.SameDisplay")
+            ($rows | Where-Object FullyQualifiedName -eq "Fixtures.$framework.OutcomeTests.Skipped" | Select-Object -First 1).Outcome | Should -Be 'NotExecuted'
+            $unicodeCase = ($rows | Where-Object FullyQualifiedName -like "Fixtures.$framework.UnicodeTests.*" | Select-Object -First 1).DataCaseId
+            $unicodeCase | Should -Match 'emoji'
+            $unicodeCase | Should -Match 'xml'
+            ($rows | Where-Object FullyQualifiedName -like "Fixtures.$framework.LongNameTests.*" | Select-Object -First 1).Outcome | Should -Be 'Inconclusive'
+            ($rows | Where-Object DisplayName -eq 'DisplayOnly(9)' | Select-Object -First 1).FullyQualifiedName | Should -Be "missing-$framework"
+            ($rows | Where-Object DisplayName -eq 'DisplayOnly(9)' | Select-Object -First 1).DataCaseId | Should -Be ''
+        }
+    }
+}
+
+Describe 'Invoke-DotNetTestAndPublishResults MTP publishing' {
+    BeforeEach {
+        $script:Content = Join-Path $TestDrive 'mtp-content'
+        New-Item -Path $script:Content -ItemType Directory -Force | Out-Null
+        New-Item -Path (Join-Path (Join-Path $script:Content 'TestHarvesting') 'dependencies.generated') -ItemType Directory -Force | Out-Null
+        $script:Dll = Join-Path $script:Content 'Mtp.Tests.dll'
+        Set-Content -LiteralPath $script:Dll -Value 'not a real assembly' -Encoding UTF8
+    }
+
+    It 'publishes rows produced by --report-trx' {
+        InModuleScope Skyline.DataMiner.QAOps.PipelineLibrary -Parameters @{ Content = $script:Content; Dll = $script:Dll; RepoRoot = $script:RepoRoot } {
+            $script:Published = @()
+            function dotnet {
+                param([Parameter(ValueFromRemainingArguments=$true)][object[]]$Arguments)
+                $outDir = Join-Path (Split-Path -Path $Dll -Parent) 'TestResults'
+                New-Item -Path $outDir -ItemType Directory -Force | Out-Null
+                Copy-Item -LiteralPath (Join-Path $RepoRoot 'tests\fixtures\trx\mstest3-mtp.trx') -Destination (Join-Path $outDir 'mtp.trx') -Force
+                $global:LASTEXITCODE = 0
+            }
+            function Push-TestRunManifest { param($CountSemanticsVersion,$ExpectedTests,$DiscoveredTests,$TestInvocations) [pscustomobject]@{ Supported=$true; Accepted=$true; StatusCode=202; ErrorCode=$null; Message='ok' } }
+            function Push-TestRunFinalization { param($PublishedResultCount,$PublisherErrors) $script:FinalCount=$PublishedResultCount; [pscustomobject]@{ Supported=$true; Accepted=$true; StatusCode=202; ErrorCode=$null; Message='ok' } }
+            function Push-TestCaseResult { param($Outcome,$Name,$Duration,$Message,$TestAspect,$ProducerEventId,$TestInvocationId,$AttemptId,$Maintainers) $script:Published += [pscustomobject]@{ Outcome=$Outcome; Name=$Name; TestInvocationId=$TestInvocationId }; [pscustomobject]@{ Supported=$true; Accepted=$true; StatusCode=202; ErrorCode=$null; Message='ok' } }
+            Invoke-DotNetTestAndPublishResults -PathToTestPackageContent $Content -TestDllPath $Dll -ResultsFileName 'mtp.trx' -UsesMTP 'true'
+            @($script:Published).Count | Should -Be 8
+            $script:FinalCount | Should -Be 8
+        }
+    }
+
+    It 'does not throw or finalize when MTP produces no TRX' {
+        InModuleScope Skyline.DataMiner.QAOps.PipelineLibrary -Parameters @{ Content = $script:Content; Dll = $script:Dll } {
+            function dotnet { param([Parameter(ValueFromRemainingArguments=$true)][object[]]$Arguments) $global:LASTEXITCODE = 0 }
+            function Push-TestRunFinalization { $script:Finalized = $true; throw 'finalization must not be sent without TRX evidence' }
+            { Invoke-DotNetTestAndPublishResults -PathToTestPackageContent $Content -TestDllPath $Dll -ResultsFileName 'missing.trx' -UsesMTP 'true' } | Should -Not -Throw
+            $script:Finalized | Should -BeNullOrEmpty
+        }
+    }
+}
+
+
+
+
+

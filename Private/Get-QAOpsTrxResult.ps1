@@ -19,11 +19,22 @@ function Get-QAOpsTrxResult {
         $testId = $r.GetAttribute('testId')
         $display = $r.GetAttribute('testName')
         $unit = if ($unitTests.ContainsKey($testId)) { $unitTests[$testId] } else { $null }
-        $fqn = if ($unit) { $unit.FullyQualifiedName } elseif (-not [string]::IsNullOrWhiteSpace($display)) { $display } else { $testId }
+        $fqn = if ($unit) { $unit.FullyQualifiedName } else { $testId }
+        $methodName = if ($unit) { $unit.MethodName } else { $fqn }
         $dataCase = ''
-        if (-not [string]::IsNullOrWhiteSpace($display)) {
-            if ($display -match '(\(.+\))$') { $dataCase = $Matches[1] }
-            elseif ($display.StartsWith($fqn, [System.StringComparison]::Ordinal) -and $display.Length -gt $fqn.Length) { $dataCase = $display.Substring($fqn.Length).Trim() }
+        foreach ($attrName in @('dataCaseId','dataRowInfo','testCaseId')) {
+            $attrValue = $r.GetAttribute($attrName)
+            if (-not [string]::IsNullOrWhiteSpace($attrValue)) { $dataCase = $attrValue; break }
+        }
+        if ([string]::IsNullOrWhiteSpace($dataCase) -and -not [string]::IsNullOrWhiteSpace($display)) {
+            if ($display.StartsWith($fqn, [System.StringComparison]::Ordinal) -and $display.Length -gt $fqn.Length) {
+                $suffix = $display.Substring($fqn.Length).Trim()
+                if ($suffix.StartsWith('(') -and $suffix.EndsWith(')')) { $dataCase = $suffix }
+            }
+            elseif (-not [string]::IsNullOrWhiteSpace($methodName) -and $display.StartsWith($methodName, [System.StringComparison]::Ordinal) -and $display.Length -gt $methodName.Length) {
+                $suffix = $display.Substring($methodName.Length).Trim()
+                if ($suffix.StartsWith('(') -and $suffix.EndsWith(')')) { $dataCase = $suffix }
+            }
         }
         $duration = [TimeSpan]::Zero
         $rawDuration = $r.GetAttribute('duration')
@@ -35,5 +46,6 @@ function Get-QAOpsTrxResult {
         if ($stackNode -and -not [string]::IsNullOrWhiteSpace($stackNode.InnerText)) { $msg = ($msg + "`n" + $stackNode.InnerText.Trim()).Trim() }
         [void]$results.Add([pscustomobject]@{ Assembly=$AssemblyName; FullyQualifiedName=$fqn; DisplayName=$display; DataCaseId=$dataCase; Outcome=$r.GetAttribute('outcome'); Duration=$duration; Message=$msg })
     }
-    return ,$results.ToArray()
+    return $results.ToArray()
 }
+

@@ -23,7 +23,7 @@ The public functions are:
 | `Initialize-QAFrameworkAgents` | `setup` | Prepare eligible Windows DataMiner Agents through QAOps Bridge. |
 | `Invoke-QAFrameworkTestPackage` | `run` | Revalidate Agent setup, execute the selected test package, and publish results. |
 
-Each function resolves a package-local tool manifest under `TestPackagePipeline/.config/dotnet-tools.json`. It installs the latest stable tool if the manifest does not include it and updates the tool if it is already present. If `TestPackagePipeline/NuGet.config` does not exist, the function creates one containing only nuget.org. Existing manifests and NuGet configuration are preserved.
+Each function resolves a package-local tool manifest under `TestPackagePipeline/.config/dotnet-tools.json`. It installs the latest stable tool if the manifest does not include it and updates the tool if it is already present. If `TestPackagePipeline/NuGet.config` exists, the function uses it. If it does not exist, no repository or user-profile NuGet configuration is created; dotnet uses the machine-configured package sources so private/company feeds are not hidden by a generated nuget.org-only file.
 
 The machine running the scripts needs the .NET SDK/runtime required by the orchestrator. The tool package must be available from a configured NuGet source. Harvesting can run on a developer machine or build agent; setup and test execution run through QAOps Bridge. The controller does not need DataMiner installed.
 
@@ -138,4 +138,5 @@ pwsh -NoProfile -Command "Import-Module Pester -MinimumVersion 5.0; Invoke-Peste
 - Keep functions focused and free of repository-specific paths.
 - Runtime functions must work on a Linux orchestrator. Use `Join-Path` and do not assume `C:\`.
 - Keep DataMiner Agent-only behavior inside the orchestrator.
+
 

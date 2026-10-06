@@ -96,3 +96,31 @@ Describe 'QAFramework public shims with reconstructed helpers' {
         }
     }
 }
+
+Describe 'QAFramework tool install NuGet safety' {
+    BeforeEach {
+        $script:Pipeline = Join-Path $TestDrive 'pipeline'
+        New-Item -Path $script:Pipeline -ItemType Directory -Force | Out-Null
+    }
+
+    It 'does not create a repository NuGet.config when none exists' {
+        InModuleScope Skyline.DataMiner.QAOps.PipelineLibrary -Parameters @{ Pipeline = $script:Pipeline } {
+            $script:DotNetCalls = @()
+            Mock Invoke-QAFrameworkDotNet { $script:DotNetCalls += ,@($Arguments); [pscustomobject]@{ ExitCode=0; StdOut=''; StdErr=''; TimedOut=$false } }
+            Install-QAFrameworkTool -PipelineDirectory $Pipeline | Out-Null
+            Test-Path -LiteralPath (Join-Path $Pipeline 'NuGet.config') | Should -BeFalse
+            (@($script:DotNetCalls | ForEach-Object { $_ }) -contains '--configfile') | Should -BeFalse
+        }
+    }
+
+    It 'uses but does not overwrite an existing package NuGet.config' {
+        Set-Content -LiteralPath (Join-Path $script:Pipeline 'NuGet.config') -Value '<configuration><packageSources><add key="private" value="https://example.invalid/v3/index.json" /></packageSources></configuration>' -Encoding UTF8
+        InModuleScope Skyline.DataMiner.QAOps.PipelineLibrary -Parameters @{ Pipeline = $script:Pipeline } {
+            $script:DotNetCalls = @()
+            Mock Invoke-QAFrameworkDotNet { $script:DotNetCalls += ,@($Arguments); [pscustomobject]@{ ExitCode=0; StdOut=''; StdErr=''; TimedOut=$false } }
+            Install-QAFrameworkTool -PipelineDirectory $Pipeline | Out-Null
+            (Get-Content -LiteralPath (Join-Path $Pipeline 'NuGet.config') -Raw) | Should -Match 'private'
+            (@($script:DotNetCalls | ForEach-Object { $_ }) -contains '--configfile') | Should -BeTrue
+        }
+    }
+}

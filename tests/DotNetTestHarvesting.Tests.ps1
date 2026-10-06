@@ -53,3 +53,34 @@ Describe 'Invoke-DotNetTestHarvesting' {
         }
     }
 }
+
+Describe 'Invoke-DotNetTestHarvesting lock contention' {
+    It 'skips with one warning when the tool-cache lock is contended and no cached tool exists' {
+        $content = Join-Path $TestDrive 'content-lock'
+        New-Item -Path (Join-Path $content 'TestHarvesting') -ItemType Directory -Force | Out-Null
+        New-Item -Path (Join-Path $content 'TestPackagePipeline') -ItemType Directory -Force | Out-Null
+        $oldLocal = $env:LOCALAPPDATA
+        $oldTimeout = $env:QAOPS_QAFRAMEWORK_TOOL_LOCK_TIMEOUT_SECONDS
+        $env:LOCALAPPDATA = Join-Path $TestDrive 'localappdata'
+        $env:QAOPS_QAFRAMEWORK_TOOL_LOCK_TIMEOUT_SECONDS = '0'
+        New-Item -Path $env:LOCALAPPDATA -ItemType Directory -Force | Out-Null
+        $mutex = New-Object System.Threading.Mutex($false, 'Global\Skyline.QAOps.QAFrameworkOrchestrator.ToolCache')
+        $taken = $mutex.WaitOne([TimeSpan]::FromSeconds(1))
+        try {
+            InModuleScope Skyline.DataMiner.QAOps.PipelineLibrary -Parameters @{ Content = $content } {
+                Mock Install-QAFrameworkTool { throw 'should not install while lock is held' }
+                $report = Invoke-DotNetTestHarvesting -TestPackageContentPath $Content -WarningVariable warnings 3>$null
+                $report.status | Should -Be 'skipped'
+                $report.diagnostics[0].code | Should -Be 'toolInstallContention'
+                @($warnings).Count | Should -Be 1
+            }
+        }
+        finally {
+            if ($taken) { $mutex.ReleaseMutex() | Out-Null }
+            $mutex.Dispose()
+            $env:LOCALAPPDATA = $oldLocal
+            $env:QAOPS_QAFRAMEWORK_TOOL_LOCK_TIMEOUT_SECONDS = $oldTimeout
+        }
+    }
+}
+

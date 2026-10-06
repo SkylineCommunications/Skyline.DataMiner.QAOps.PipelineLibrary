@@ -70,7 +70,9 @@ function Invoke-DotNetTestHarvesting {
     $hasMutex = $false
     try {
         $mutex = New-Object System.Threading.Mutex($false, 'Global\Skyline.QAOps.QAFrameworkOrchestrator.ToolCache')
-        try { $hasMutex = $mutex.WaitOne([TimeSpan]::FromSeconds(60)) } catch { $hasMutex = $false }
+        $lockTimeoutSeconds = 60
+        if (-not [string]::IsNullOrWhiteSpace($env:QAOPS_QAFRAMEWORK_TOOL_LOCK_TIMEOUT_SECONDS)) { [int]::TryParse($env:QAOPS_QAFRAMEWORK_TOOL_LOCK_TIMEOUT_SECONDS, [ref]$lockTimeoutSeconds) | Out-Null; if ($lockTimeoutSeconds -lt 0) { $lockTimeoutSeconds = 0 } }
+        if ($lockTimeoutSeconds -eq 0) { $hasMutex = $false } else { try { $hasMutex = $mutex.WaitOne([TimeSpan]::FromSeconds($lockTimeoutSeconds)) } catch { $hasMutex = $false } }
         if ($hasMutex) {
             try { $null = Install-QAFrameworkTool -PipelineDirectory $toolDir -TimeoutSeconds ([Math]::Max(120, $TimeBudgetSeconds + 60)) }
             catch {
@@ -118,3 +120,5 @@ function Invoke-DotNetTestHarvesting {
     try { return ($result.StdOut.Trim() | ConvertFrom-Json -ErrorAction Stop) }
     catch { return New-SkippedHarvestReport -Code 'nonJsonOutput' -Message 'Skipped .NET maintainer harvesting because harvest-dotnet did not return a valid JSON report.' }
 }
+
+

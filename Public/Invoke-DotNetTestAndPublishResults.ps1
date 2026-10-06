@@ -87,7 +87,7 @@ function Invoke-DotNetTestAndPublishResults {
             if ($LASTEXITCODE -ne 0) { Write-Warning "dotnet test --test-modules returned exit code $LASTEXITCODE for $TestDllPath (will be reported from TRX)." }
             $candidate = Join-Path (Join-Path (Split-Path -Path $TestDllPath -Parent) 'TestResults') $ResultsFileName
             if (Test-Path -LiteralPath $candidate -PathType Leaf) { Copy-Item -LiteralPath $candidate -Destination $resultsPath -Force }
-            elseif (-not (Test-Path -LiteralPath $resultsPath -PathType Leaf)) { Write-Warning 'MTP did not produce the requested TRX file. Install Microsoft.Testing.Extensions.TrxReport and ensure --report-trx is supported.' }
+            elseif (-not (Test-Path -LiteralPath $resultsPath -PathType Leaf)) { Write-Warning 'MTP did not produce the requested TRX file. Install Microsoft.Testing.Extensions.TrxReport and ensure --report-trx is supported. No finalization will be sent for this package.'; return }
         }
         else {
             Write-Host "Executing: dotnet test `"$TestDllPath`"" -ForegroundColor Cyan
@@ -165,3 +165,5 @@ function Invoke-DotNetTestAndPublishResults {
         }
     }
 }
+
+
