@@ -1,6 +1,6 @@
 {
   "schema": "https://schema.skyline.be/qaops/conformance/producer-transport-v1/runtime-lookup-vectors",
-  "canonicalKey": "<producer-namespace>|<test-identity>|data:<dataCaseId or empty>|target:<target or default>",
+  "canonicalKey": "v1 percent-encoded components: <producer-namespace>|<test-identity>|data:<dataCaseId or empty>|target:<logical target or default>",
   "vectors": [
     {
       "name": "exact-match",
@@ -214,9 +214,10 @@
         "producerNamespace": "qaframework",
         "testName": "MemoryLeakTest",
         "dataCaseId": "",
-        "target": "bridge-01",
         "iteration": 1,
-        "attempt": 1
+        "attempt": 1,
+        "logicalTarget": "default",
+        "actualBridgeId": "bridge-01"
       },
       "expected": {
         "matchedKey": "qaframework|MemoryLeakTest|data:|target:default",
@@ -225,8 +226,9 @@
           "platform-squad"
         ],
         "diagnostics": [],
-        "testInvocationId": "qaframework|MemoryLeakTest|data:|target:bridge-01",
-        "attemptSemantics": "iteration/background/failover are attempts, not data cases"
+        "testInvocationId": "qaframework|MemoryLeakTest|data:|target:default",
+        "attemptSemantics": "iteration/background/failover are attempts, not data cases",
+        "actualBridgeCarriedAs": "attemptProvenance"
       }
     },
     {
@@ -255,8 +257,8 @@
         "producerNamespace": "qaframework",
         "testName": "FailoverSwitchTest",
         "dataCaseId": "",
-        "target": "bridge-02",
-        "attempt": 1
+        "attempt": 1,
+        "logicalTarget": "bridge-02"
       },
       "expected": {
         "matchedKey": "qaframework|FailoverSwitchTest|data:|target:bridge-02",
@@ -284,10 +286,11 @@
         "producerNamespace": "qaframework",
         "testName": "StabilitySuiteTest",
         "dataCaseId": "",
-        "target": "bridge-03",
         "iteration": 5,
         "backgroundPass": 2,
-        "attempt": 3
+        "attempt": 3,
+        "logicalTarget": "default",
+        "actualBridgeId": "bridge-03"
       },
       "expected": {
         "matchedKey": "qaframework|StabilitySuiteTest|data:|target:default",
@@ -295,7 +298,7 @@
           "stability-owner"
         ],
         "diagnostics": [],
-        "testInvocationId": "qaframework|StabilitySuiteTest|data:|target:bridge-03",
+        "testInvocationId": "qaframework|StabilitySuiteTest|data:|target:default",
         "dataCaseId": "",
         "attemptIdRequired": true
       }
@@ -328,6 +331,102 @@
           }
         ],
         "testInvocationId": "qaframework|MemoryLeakTest|data:|target:default"
+      }
+    },
+    {
+      "name": "5c-3-delimiter-collision-percent-encoded",
+      "change": "5c-3",
+      "runtimeResult": {
+        "assembly": "Tests.dll",
+        "fullyQualifiedName": "Acme.Tests.Run",
+        "dataCaseId": "case|target:a",
+        "target": "b"
+      },
+      "expected": {
+        "testInvocationId": "Tests.dll|Acme.Tests.Run|data:case%7Ctarget:a|target:b",
+        "doesNotEqual": "Tests.dll|Acme.Tests.Run|data:case|target:a%7Ctarget:b"
+      }
+    },
+    {
+      "name": "5c-3-long-identity-shortened",
+      "change": "5c-3",
+      "runtimeResult": {
+        "assembly": "Tests.dll",
+        "fullyQualifiedName": "Acme.Tests.Long",
+        "dataCaseId": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "target": "default"
+      },
+      "expected": {
+        "diagnostics": [
+          {
+            "code": "identity-shortened"
+          }
+        ],
+        "testInvocationIdPattern": "^Tests\\.dll\\|Acme\\.Tests\\.Long\\|hash:[A-Za-z0-9_-]{43}\\|target:default$",
+        "maxLength": 1024
+      }
+    },
+    {
+      "name": "5c-3-qaframework-failover-same-invocation",
+      "change": "5c-3",
+      "sidecarEntries": [
+        {
+          "key": "qaframework|FailoverSwitchTest|data:|target:logical-cluster-a",
+          "references": [
+            {
+              "alias": "failover-owner",
+              "kind": "user"
+            }
+          ]
+        }
+      ],
+      "runtimeAttempts": [
+        {
+          "logicalTarget": "logical-cluster-a",
+          "actualBridgeId": "bridge-a",
+          "attempt": 1
+        },
+        {
+          "logicalTarget": "logical-cluster-a",
+          "actualBridgeId": "bridge-b",
+          "attempt": 2,
+          "reason": "Failover"
+        }
+      ],
+      "expected": {
+        "testInvocationIds": [
+          "qaframework|FailoverSwitchTest|data:|target:logical-cluster-a",
+          "qaframework|FailoverSwitchTest|data:|target:logical-cluster-a"
+        ],
+        "attemptIdsDifferent": true,
+        "actualBridgeCarriedAs": "attemptProvenance"
+      }
+    },
+    {
+      "name": "5c-3-trx-unstable-data-case-diagnostic",
+      "change": "5c-3",
+      "runtimeResult": {
+        "assembly": "Tests.dll",
+        "fullyQualifiedName": "Acme.Tests.Theory",
+        "displayName": "Friendly custom name",
+        "adapterFields": {
+          "executionId": "2f1fd6b1-5360-4d7e-bbea-1d7aaf0e9298",
+          "innerResultOrdinal": 2
+        },
+        "target": "default"
+      },
+      "expected": {
+        "dataCaseId": "",
+        "diagnostics": [
+          {
+            "code": "data-case-identity-unavailable"
+          }
+        ],
+        "manifestComparable": false,
+        "forbiddenFields": [
+          "executionId",
+          "innerResultOrdinal"
+        ]
       }
     }
   ]

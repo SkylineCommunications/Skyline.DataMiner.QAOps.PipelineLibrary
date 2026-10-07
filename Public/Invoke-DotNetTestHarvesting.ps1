@@ -58,6 +58,16 @@ function Invoke-DotNetTestHarvesting {
     }
 
     $paths = Resolve-QAFrameworkContentPath -Path $TestPackageContentPath
+    $resolvedRepositoryRoot = $null
+    if ($PSBoundParameters.ContainsKey('RepositoryRoot') -and -not [string]::IsNullOrWhiteSpace($RepositoryRoot)) {
+        try { $resolvedRepositoryRoot = (Resolve-Path -LiteralPath $RepositoryRoot -ErrorAction Stop).ProviderPath }
+        catch { return New-SkippedHarvestReport -Code 'invalidRepositoryRoot' -Message 'Skipped .NET maintainer harvesting because the repository root path could not be resolved.' }
+    }
+    $resolvedReviewedManifestPath = $null
+    if ($PSBoundParameters.ContainsKey('ReviewedManifestPath') -and -not [string]::IsNullOrWhiteSpace($ReviewedManifestPath)) {
+        try { $resolvedReviewedManifestPath = (Resolve-Path -LiteralPath $ReviewedManifestPath -ErrorAction Stop).ProviderPath }
+        catch { return New-SkippedHarvestReport -Code 'invalidReviewedManifest' -Message 'Skipped .NET maintainer harvesting because the reviewed maintainer manifest path could not be resolved.' }
+    }
     if ($null -eq (Get-Command -Name dotnet -ErrorAction SilentlyContinue)) {
         return New-SkippedHarvestReport -Code 'dotnetMissing' -Message 'Skipped .NET maintainer harvesting because dotnet is not available.'
     }
@@ -95,8 +105,8 @@ function Invoke-DotNetTestHarvesting {
 
     $arguments = @('tool','run','qaops-qaframework','--','harvest-dotnet','--content',$paths.ContentPath,'--github-lookup',$GitHubLookup.ToLowerInvariant(),'--time-budget-seconds',[string]$TimeBudgetSeconds,'--json')
     foreach ($assembly in @($TestAssemblyPath)) { if (-not [string]::IsNullOrWhiteSpace($assembly)) { $arguments += @('--assembly',$assembly) } }
-    if ($PSBoundParameters.ContainsKey('RepositoryRoot')) { $arguments += @('--repository-root',$RepositoryRoot) }
-    if ($PSBoundParameters.ContainsKey('ReviewedManifestPath')) { $arguments += @('--reviewed-manifest',$ReviewedManifestPath) }
+    if ($resolvedRepositoryRoot) { $arguments += @('--repository-root',$resolvedRepositoryRoot) }
+    if ($resolvedReviewedManifestPath) { $arguments += @('--reviewed-manifest',$resolvedReviewedManifestPath) }
     if ($GitHubOrganizations -and @($GitHubOrganizations).Count -gt 0) { $arguments += @('--github-orgs',($GitHubOrganizations -join ',')) }
     if ($AllowedEmailDomains -and @($AllowedEmailDomains).Count -gt 0) { $arguments += @('--allowed-email-domains',($AllowedEmailDomains -join ',')) }
 
@@ -125,7 +135,6 @@ function Invoke-DotNetTestHarvesting {
     try { return ($result.StdOut.Trim() | ConvertFrom-Json -ErrorAction Stop) }
     catch { return New-SkippedHarvestReport -Code 'nonJsonOutput' -Message 'Skipped .NET maintainer harvesting because harvest-dotnet did not return a valid JSON report.' }
 }
-
 
 
 

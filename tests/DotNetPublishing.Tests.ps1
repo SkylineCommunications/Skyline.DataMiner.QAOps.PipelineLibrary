@@ -7,7 +7,7 @@ BeforeAll {
 Describe 'Runtime maintainer lookup conformance' {
     It 'matches runtime-lookup-vectors exactly' {
         $fixture = Get-Content -LiteralPath (Join-Path $script:RepoRoot 'tests\fixtures\conformance\runtime-lookup-vectors.json') -Raw | ConvertFrom-Json
-        foreach ($vector in @($fixture.vectors | Where-Object { $_.runtimeResult.assembly })) {
+        foreach ($vector in @($fixture.vectors | Where-Object { $_.runtimeResult.assembly -and $_.runtimeResult.fullyQualifiedName -and $_.sidecarEntries })) {
             InModuleScope Skyline.DataMiner.QAOps.PipelineLibrary -Parameters @{ Vector = $vector } {
                 $entries = @{}
                 foreach ($entry in @($Vector.sidecarEntries)) {
@@ -15,7 +15,8 @@ Describe 'Runtime maintainer lookup conformance' {
                     [void]$entries[[string]$entry.key].Add([pscustomobject]@{ maintainers = [pscustomobject]@{ version = 1; references = @($entry.references) } })
                 }
                 $result = Resolve-QAOpsRuntimeMaintainers -Entries $entries -Assembly $Vector.runtimeResult.assembly -FullyQualifiedName $Vector.runtimeResult.fullyQualifiedName -DataCaseId $Vector.runtimeResult.dataCaseId -Target $Vector.runtimeResult.target
-                $result.TestInvocationId | Should -Be $Vector.expected.testInvocationId
+                if ($Vector.expected.testInvocationId) { $result.TestInvocationId | Should -Be $Vector.expected.testInvocationId }
+                if ($Vector.expected.testInvocationIdPattern) { $result.TestInvocationId | Should -Match $Vector.expected.testInvocationIdPattern }
                 if ($null -eq $Vector.expected.matchedKey) { $result.MatchedKey | Should -BeNullOrEmpty } else { $result.MatchedKey | Should -Be $Vector.expected.matchedKey }
                 $aliases = @($result.Maintainers.references | ForEach-Object { $_.alias })
                 $aliases | Should -Be @($Vector.expected.aliases)
@@ -142,7 +143,6 @@ Describe 'Invoke-DotNetTestAndPublishResults MTP publishing' {
         }
     }
 }
-
 
 
 

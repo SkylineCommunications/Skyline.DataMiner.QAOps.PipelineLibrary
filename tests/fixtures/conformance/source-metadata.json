@@ -1,0 +1,54 @@
+{
+  "schema": "https://schema.skyline.be/qaops/conformance/source-metadata/v1",
+  "generatedAtUtc": "2026-10-07T11:19:18Z",
+  "files": [
+    {
+      "file": "maintainers-envelope-cases.json",
+      "sourcePath": "D:\\GITHUB_IMPORTANT\\Skyline-QAOps-QG\\docs\\quality-gates\\conformance\\producer-transport-v1\\maintainers-envelope-cases.json",
+      "specCommit": "2a8c799",
+      "sha256": "2df6f41df2aceb3d9ef7af909512e9e6a316742d29cfdfb5107088a58be1f9db"
+    },
+    {
+      "file": "noreply-login-vectors.json",
+      "sourcePath": "D:\\GITHUB_IMPORTANT\\Skyline-QAOps-QG\\docs\\quality-gates\\conformance\\producer-transport-v1\\noreply-login-vectors.json",
+      "specCommit": "2a8c799",
+      "sha256": "8ce63e059f0a645ff7bc5d4c4e154f76db2e068faa3bd757da460b0e6cc4dd46"
+    },
+    {
+      "file": "precedence-merge-vectors.json",
+      "sourcePath": "D:\\GITHUB_IMPORTANT\\Skyline-QAOps-QG\\docs\\quality-gates\\conformance\\producer-transport-v1\\precedence-merge-vectors.json",
+      "specCommit": "2a8c799",
+      "sha256": "b43c76806f37e4e5ca3ce845c6533fd7d3d94d3c7a2b434828a3b41a28ae6288"
+    },
+    {
+      "file": "publication-context-vectors.json",
+      "sourcePath": "D:\\GITHUB_IMPORTANT\\Skyline-QAOps-QG\\docs\\quality-gates\\conformance\\producer-transport-v1\\publication-context-vectors.json",
+      "specCommit": "2a8c799",
+      "sha256": "dbe9aa57cadec2af6f5c3662324927da4e34837d1de5fa76698f434ba242b349"
+    },
+    {
+      "file": "runtime-lookup-vectors.json",
+      "sourcePath": "D:\\GITHUB_IMPORTANT\\Skyline-QAOps-QG\\docs\\quality-gates\\conformance\\producer-transport-v1\\runtime-lookup-vectors.json",
+      "specCommit": "2a8c799",
+      "sha256": "369a41f3fb097e55b1bef8df968adb15026a0f674667f52490919de183b12b2c"
+    },
+    {
+      "file": "sidecar-examples.json",
+      "sourcePath": "D:\\GITHUB_IMPORTANT\\Skyline-QAOps-QG\\docs\\quality-gates\\conformance\\producer-transport-v1\\sidecar-examples.json",
+      "specCommit": "2a8c799",
+      "sha256": "eda5d3912aed18c9aebdbf268e1c321b6564959aa9024e18bf28918c9f9476e8"
+    },
+    {
+      "file": "status-watermark-vectors.json",
+      "sourcePath": "D:\\GITHUB_IMPORTANT\\Skyline-QAOps-QG\\docs\\quality-gates\\conformance\\producer-transport-v1\\status-watermark-vectors.json",
+      "specCommit": "2a8c799",
+      "sha256": "b26941e2295b11ec883279594be9db3b8d517bedbb02ebff740b6200f793fefb"
+    },
+    {
+      "file": "testcase-result-id-vectors.json",
+      "sourcePath": "D:\\GITHUB_IMPORTANT\\Skyline-QAOps-QG\\docs\\quality-gates\\conformance\\producer-transport-v1\\testcase-result-id-vectors.json",
+      "specCommit": "2a8c799",
+      "sha256": "1c8608595288f8f6f521026a1d5c161ecaa5e1c0d37fce5242d9a0b05d86cc53"
+    }
+  ]
+}

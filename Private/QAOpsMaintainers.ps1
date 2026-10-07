@@ -1,10 +1,87 @@
-function New-QAOpsTestInvocationId {
-    <# Builds the canonical runtime sidecar key: assembly|fullyQualifiedName|data:<case>|target:<target>. #>
+function ConvertTo-QAOpsKeyComponent {
+    <# Percent-encodes the v1 canonical-key variable component characters that can collide with grammar tokens. #>
+    [CmdletBinding()]
+    param([Parameter()][AllowNull()][string]$Value)
+    if ($null -eq $Value) { return '' }
+    $builder = New-Object System.Text.StringBuilder
+    for ($i = 0; $i -lt $Value.Length; $i++) {
+        $ch = $Value[$i]
+        $code = [int][char]$ch
+        if ([char]::IsHighSurrogate($ch)) {
+            if (($i + 1) -ge $Value.Length -or -not [char]::IsLowSurrogate($Value[$i + 1])) { throw "Canonical key component contains a lone surrogate." }
+            [void]$builder.Append($ch)
+            $i++
+            [void]$builder.Append($Value[$i])
+            continue
+        }
+        if ([char]::IsLowSurrogate($ch)) { throw "Canonical key component contains a lone surrogate." }
+        if ($ch -eq '%' -or $ch -eq '|' -or [char]::IsControl($ch)) {
+            foreach ($byte in [System.Text.Encoding]::UTF8.GetBytes([string]$ch)) { [void]$builder.Append(('%{0:X2}' -f $byte)) }
+        } else {
+            [void]$builder.Append($ch)
+        }
+    }
+    return $builder.ToString()
+}
+
+function Get-QAOpsScalarCount {
+    param([Parameter()][AllowNull()][string]$Value)
+    if ($null -eq $Value) { return 0 }
+    $count = 0
+    for ($i = 0; $i -lt $Value.Length; $i++) {
+        if ([char]::IsHighSurrogate($Value[$i]) -and ($i + 1) -lt $Value.Length -and [char]::IsLowSurrogate($Value[$i + 1])) { $i++ }
+        $count++
+    }
+    return $count
+}
+
+function Get-QAOpsScalarPrefix {
+    param([Parameter()][AllowNull()][string]$Value,[Parameter(Mandatory=$true)][int]$MaxScalars)
+    if ($null -eq $Value -or $MaxScalars -le 0) { return '' }
+    $count = 0
+    for ($i = 0; $i -lt $Value.Length; $i++) {
+        $next = $i + 1
+        if ([char]::IsHighSurrogate($Value[$i]) -and $next -lt $Value.Length -and [char]::IsLowSurrogate($Value[$next])) { $i++ }
+        $count++
+        if ($count -ge $MaxScalars) { return $Value.Substring(0, $i + 1) }
+    }
+    return $Value
+}
+
+function ConvertTo-QAOpsBase64Url {
+    param([Parameter(Mandatory=$true)][byte[]]$Bytes)
+    return ([Convert]::ToBase64String($Bytes).TrimEnd('=').Replace('+','-').Replace('/','_'))
+}
+
+function New-QAOpsTestInvocationIdentity {
+    <# Builds the canonical runtime sidecar key using producer-transport-v1 §9.2 percent-encoding and shortening. #>
     [CmdletBinding()]
     param([Parameter(Mandatory=$true)][string]$Assembly,[Parameter(Mandatory=$true)][string]$FullyQualifiedName,[Parameter()][AllowNull()][string]$DataCaseId,[Parameter()][AllowNull()][string]$Target)
-    $case = if ($null -eq $DataCaseId) { '' } else { [string]$DataCaseId }
-    $t = if ([string]::IsNullOrWhiteSpace($Target)) { 'default' } else { [string]$Target }
-    return ('{0}|{1}|data:{2}|target:{3}' -f $Assembly,$FullyQualifiedName,$case,$t)
+    $namespace = ConvertTo-QAOpsKeyComponent -Value $Assembly
+    $identity = ConvertTo-QAOpsKeyComponent -Value $FullyQualifiedName
+    $case = ConvertTo-QAOpsKeyComponent -Value $(if ($null -eq $DataCaseId) { '' } else { [string]$DataCaseId })
+    $t = ConvertTo-QAOpsKeyComponent -Value $(if ([string]::IsNullOrWhiteSpace($Target)) { 'default' } else { [string]$Target })
+    $full = ('{0}|{1}|data:{2}|target:{3}' -f $namespace,$identity,$case,$t)
+    $diagnostics = @()
+    if ((Get-QAOpsScalarCount -Value $full) -gt 1024) {
+        $sha = [System.Security.Cryptography.SHA256]::Create()
+        try { $hash = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($full)) }
+        finally { $sha.Dispose() }
+        $hashText = ConvertTo-QAOpsBase64Url -Bytes $hash
+        $fixedLength = (Get-QAOpsScalarCount -Value ($namespace + '||hash:' + $hashText + '|target:' + $t))
+        $prefixBudget = [Math]::Max(0, [Math]::Min(128, 1024 - $fixedLength))
+        $identity = Get-QAOpsScalarPrefix -Value $identity -MaxScalars $prefixBudget
+        $full = ('{0}|{1}|hash:{2}|target:{3}' -f $namespace,$identity,$hashText,$t)
+        $diagnostics = @([pscustomobject]@{ code='identity-shortened' })
+    }
+    [pscustomobject]@{ TestInvocationId=$full; Diagnostics=$diagnostics }
+}
+
+function New-QAOpsTestInvocationId {
+    <# Back-compat string helper for the canonical runtime sidecar key. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory=$true)][string]$Assembly,[Parameter(Mandatory=$true)][string]$FullyQualifiedName,[Parameter()][AllowNull()][string]$DataCaseId,[Parameter()][AllowNull()][string]$Target)
+    return (New-QAOpsTestInvocationIdentity -Assembly $Assembly -FullyQualifiedName $FullyQualifiedName -DataCaseId $DataCaseId -Target $Target).TestInvocationId
 }
 
 function New-QAOpsOrdinalDictionary {
@@ -80,7 +157,8 @@ function Resolve-QAOpsRuntimeMaintainers {
     <# Implements §9.2 lookup order without display-name fallback; conflicts at the same specificity return no maintainers plus a diagnostic. #>
     [CmdletBinding()]
     param([Parameter(Mandatory=$true)][object]$Entries,[Parameter(Mandatory=$true)][string]$Assembly,[Parameter(Mandatory=$true)][string]$FullyQualifiedName,[Parameter()][string]$DataCaseId,[Parameter()][string]$Target)
-    $testInvocationId = New-QAOpsTestInvocationId -Assembly $Assembly -FullyQualifiedName $FullyQualifiedName -DataCaseId $DataCaseId -Target $Target
+    $identity = New-QAOpsTestInvocationIdentity -Assembly $Assembly -FullyQualifiedName $FullyQualifiedName -DataCaseId $DataCaseId -Target $Target
+    $testInvocationId = $identity.TestInvocationId
     $keys = @(
         $testInvocationId,
         (New-QAOpsTestInvocationId -Assembly $Assembly -FullyQualifiedName $FullyQualifiedName -DataCaseId $DataCaseId -Target 'default'),
@@ -90,9 +168,9 @@ function Resolve-QAOpsRuntimeMaintainers {
     foreach ($key in $keys) {
         if ($Entries.ContainsKey($key)) {
             $matches = @($Entries[$key])
-            if ($matches.Count -gt 1) { return [pscustomobject]@{ TestInvocationId=$testInvocationId; MatchedKey=$null; Maintainers=$null; Diagnostics=@([pscustomobject]@{ code='maintainer-conflict'; key=$key }) } }
-            return [pscustomobject]@{ TestInvocationId=$testInvocationId; MatchedKey=$key; Maintainers=$matches[0].maintainers; Diagnostics=@() }
+            if ($matches.Count -gt 1) { return [pscustomobject]@{ TestInvocationId=$testInvocationId; MatchedKey=$null; Maintainers=$null; Diagnostics=(@($identity.Diagnostics) + @([pscustomobject]@{ code='maintainer-conflict'; key=$key })) } }
+            return [pscustomobject]@{ TestInvocationId=$testInvocationId; MatchedKey=$key; Maintainers=$matches[0].maintainers; Diagnostics=@($identity.Diagnostics) }
         }
     }
-    [pscustomobject]@{ TestInvocationId=$testInvocationId; MatchedKey=$null; Maintainers=$null; Diagnostics=@([pscustomobject]@{ code='maintainers-not-found' }) }
+    [pscustomobject]@{ TestInvocationId=$testInvocationId; MatchedKey=$null; Maintainers=$null; Diagnostics=(@($identity.Diagnostics) + @([pscustomobject]@{ code='maintainers-not-found' })) }
 }

@@ -132,6 +132,35 @@
         ],
         "merge": "explicit-conflict-never-last-writer-wins"
       }
+    },
+    {
+      "name": "bridge-reviewed-manifest-replaces-supplied-git-fallback",
+      "change": "5c-3",
+      "inputs": {
+        "resultMaintainers": [
+          {
+            "alias": "git@example.com",
+            "source": "git-author",
+            "provenance": "buildTimeFallback"
+          }
+        ],
+        "manifestMaintainers": [
+          {
+            "alias": "reviewed-owner",
+            "source": "reviewed-manifest",
+            "provenance": "declared"
+          }
+        ]
+      },
+      "expected": {
+        "chosenAliases": [
+          "reviewed-owner"
+        ],
+        "discardedSources": [
+          "git-author"
+        ],
+        "merge": "source-aware-precedence-never-explicit-last-writer-wins"
+      }
     }
   ]
 }

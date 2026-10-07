@@ -1,0 +1,1936 @@
+{
+  "schema": "https://schema.skyline.be/qaops/conformance/producer-transport-v1/status-watermark-vectors",
+  "property": "payload.resultWatermark",
+  "classificationClasses": [
+    "proven",
+    "unverifiable",
+    "lost",
+    "unknown"
+  ],
+  "vectors": [
+    {
+      "name": "valid-complete",
+      "envelope": {
+        "retryAttempt": 0,
+        "messageType": "TestRunStatus.V2",
+        "payload": {
+          "messageType": "TestRunStatus.V2",
+          "serverId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "testRunId": "01K70B7K0C0W5PP4YVYZ6M0600",
+          "status": 7,
+          "message": null,
+          "resultWatermark": {
+            "schemaVersion": 1,
+            "publishedResultCount": 2,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": true,
+            "incompleteReasons": []
+          }
+        }
+      },
+      "expected": {
+        "valid": true,
+        "complete": true,
+        "class": "proven",
+        "reasonCodes": [],
+        "unknown": false,
+        "distinctReceivedResultCount": 2
+      }
+    },
+    {
+      "name": "absent-watermark",
+      "envelope": {
+        "retryAttempt": 0,
+        "messageType": "TestRunStatus.V2",
+        "payload": {
+          "messageType": "TestRunStatus.V2",
+          "serverId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "testRunId": "01K70B7K0C0W5PP4YVYZ6M0600",
+          "status": 7,
+          "message": null
+        }
+      },
+      "expected": {
+        "valid": true,
+        "complete": false,
+        "class": "unverifiable",
+        "reasonCodes": [
+          "legacyBridgeNoWatermark"
+        ],
+        "unknown": false
+      }
+    },
+    {
+      "name": "partial-legacy-unfinalized",
+      "envelope": {
+        "retryAttempt": 0,
+        "messageType": "TestRunStatus.V2",
+        "payload": {
+          "messageType": "TestRunStatus.V2",
+          "serverId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "testRunId": "01K70B7K0C0W5PP4YVYZ6M0600",
+          "status": 7,
+          "message": null,
+          "resultWatermark": {
+            "schemaVersion": 1,
+            "publishedResultCount": 1,
+            "packageCount": 2,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 1,
+            "complete": false,
+            "incompleteReasons": [
+              "missingFinalization"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "valid": true,
+        "complete": false,
+        "class": "unverifiable",
+        "reasonCodes": [
+          "legacyPackageNotFinalized"
+        ]
+      }
+    },
+    {
+      "name": "contradictory-complete-with-errors",
+      "envelope": {
+        "retryAttempt": 0,
+        "messageType": "TestRunStatus.V2",
+        "payload": {
+          "messageType": "TestRunStatus.V2",
+          "serverId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "testRunId": "01K70B7K0C0W5PP4YVYZ6M0600",
+          "status": 7,
+          "message": null,
+          "resultWatermark": {
+            "schemaVersion": 1,
+            "publishedResultCount": 2,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 1,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": true,
+            "incompleteReasons": []
+          }
+        }
+      },
+      "expected": {
+        "valid": false,
+        "complete": false,
+        "class": "lost",
+        "reasonCodes": [
+          "publisherErrors",
+          "invalidWatermark"
+        ],
+        "diagnostic": "contradictoryWatermark"
+      }
+    },
+    {
+      "name": "negative-count",
+      "envelope": {
+        "retryAttempt": 0,
+        "messageType": "TestRunStatus.V2",
+        "payload": {
+          "messageType": "TestRunStatus.V2",
+          "serverId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "testRunId": "01K70B7K0C0W5PP4YVYZ6M0600",
+          "status": 7,
+          "message": null,
+          "resultWatermark": {
+            "schemaVersion": 1,
+            "publishedResultCount": -1,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": true,
+            "incompleteReasons": []
+          }
+        }
+      },
+      "expected": {
+        "valid": false,
+        "complete": false,
+        "class": "lost",
+        "reasonCodes": [
+          "invalidWatermark"
+        ],
+        "diagnostic": "invalidWatermark"
+      }
+    },
+    {
+      "name": "overflow-count",
+      "envelope": {
+        "retryAttempt": 0,
+        "messageType": "TestRunStatus.V2",
+        "payload": {
+          "messageType": "TestRunStatus.V2",
+          "serverId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "testRunId": "01K70B7K0C0W5PP4YVYZ6M0600",
+          "status": 7,
+          "message": null,
+          "resultWatermark": {
+            "schemaVersion": 1,
+            "publishedResultCount": 9223372036854775808,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": true,
+            "incompleteReasons": []
+          }
+        }
+      },
+      "expected": {
+        "valid": false,
+        "complete": false,
+        "class": "lost",
+        "reasonCodes": [
+          "invalidWatermark"
+        ],
+        "diagnostic": "invalidWatermark"
+      }
+    },
+    {
+      "name": "unknown-extra-field",
+      "envelope": {
+        "retryAttempt": 0,
+        "messageType": "TestRunStatus.V2",
+        "payload": {
+          "messageType": "TestRunStatus.V2",
+          "serverId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "testRunId": "01K70B7K0C0W5PP4YVYZ6M0600",
+          "status": 7,
+          "message": null,
+          "resultWatermark": {
+            "schemaVersion": 1,
+            "publishedResultCount": 0,
+            "packageCount": 0,
+            "finalizedPackageCount": 0,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": true,
+            "incompleteReasons": [],
+            "futureField": "ignored"
+          }
+        }
+      },
+      "expected": {
+        "valid": true,
+        "complete": true,
+        "class": "proven",
+        "reasonCodes": [],
+        "unknownExtraFieldIgnored": true,
+        "distinctReceivedResultCount": 0
+      }
+    },
+    {
+      "name": "cluster-participant-set",
+      "envelope": {
+        "retryAttempt": 0,
+        "messageType": "TestRunStatus.V2",
+        "payload": {
+          "messageType": "TestRunStatus.V2",
+          "serverId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "testRunId": "01K70B7K0C0W5PP4YVYZ6M0600",
+          "status": 7,
+          "message": null,
+          "resultWatermark": {
+            "schemaVersion": 1,
+            "publishedResultCount": 4,
+            "packageCount": 2,
+            "finalizedPackageCount": 2,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": true,
+            "incompleteReasons": [],
+            "participantBridgeIds": [
+              "01K70B7K0C0W5PP4YVYZ6M0B00",
+              "01K70B7K0C0W5PP4YVYZ6M0B01"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "valid": true,
+        "class": "proven",
+        "reasonCodes": [],
+        "completeRequiresParticipantWatermarks": [
+          "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "01K70B7K0C0W5PP4YVYZ6M0B01"
+        ]
+      },
+      "participantWatermarks": {
+        "01K70B7K0C0W5PP4YVYZ6M0B00": "proven",
+        "01K70B7K0C0W5PP4YVYZ6M0B01": "proven"
+      }
+    },
+    {
+      "name": "publisher-errors-lost",
+      "envelope": {
+        "retryAttempt": 0,
+        "messageType": "TestRunStatus.V2",
+        "payload": {
+          "messageType": "TestRunStatus.V2",
+          "serverId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "testRunId": "01K70B7K0C0W5PP4YVYZ6M0600",
+          "status": 7,
+          "message": null,
+          "resultWatermark": {
+            "schemaVersion": 1,
+            "publishedResultCount": 2,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 2,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": false,
+            "incompleteReasons": [
+              "publisherErrors"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "valid": true,
+        "complete": false,
+        "class": "lost",
+        "reasonCodes": [
+          "publisherErrors"
+        ]
+      }
+    },
+    {
+      "name": "bridge-state-lost",
+      "envelope": {
+        "retryAttempt": 0,
+        "messageType": "TestRunStatus.V2",
+        "payload": {
+          "messageType": "TestRunStatus.V2",
+          "serverId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "testRunId": "01K70B7K0C0W5PP4YVYZ6M0600",
+          "status": 7,
+          "message": null,
+          "resultWatermark": {
+            "schemaVersion": 1,
+            "publishedResultCount": 2,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": true,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": false,
+            "incompleteReasons": [
+              "stateLost"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "valid": true,
+        "complete": false,
+        "class": "lost",
+        "reasonCodes": [
+          "bridgeStateLost"
+        ]
+      }
+    },
+    {
+      "name": "cap-overflow",
+      "envelope": {
+        "retryAttempt": 0,
+        "messageType": "TestRunStatus.V2",
+        "payload": {
+          "messageType": "TestRunStatus.V2",
+          "serverId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "testRunId": "01K70B7K0C0W5PP4YVYZ6M0600",
+          "status": 7,
+          "message": null,
+          "resultWatermark": {
+            "schemaVersion": 1,
+            "publishedResultCount": 2,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": true,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": false,
+            "incompleteReasons": [
+              "capOverflow"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "valid": true,
+        "complete": false,
+        "class": "lost",
+        "reasonCodes": [
+          "capOverflow"
+        ]
+      }
+    },
+    {
+      "name": "drain-timeout",
+      "envelope": {
+        "retryAttempt": 0,
+        "messageType": "TestRunStatus.V2",
+        "payload": {
+          "messageType": "TestRunStatus.V2",
+          "serverId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "testRunId": "01K70B7K0C0W5PP4YVYZ6M0600",
+          "status": 7,
+          "message": null,
+          "resultWatermark": {
+            "schemaVersion": 1,
+            "publishedResultCount": 2,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": true,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": false,
+            "incompleteReasons": [
+              "drainTimedOut"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "valid": true,
+        "complete": false,
+        "class": "lost",
+        "reasonCodes": [
+          "drainTimeout"
+        ]
+      }
+    },
+    {
+      "name": "bound-context-not-finalized",
+      "envelope": {
+        "retryAttempt": 0,
+        "messageType": "TestRunStatus.V2",
+        "payload": {
+          "messageType": "TestRunStatus.V2",
+          "serverId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "testRunId": "01K70B7K0C0W5PP4YVYZ6M0600",
+          "status": 7,
+          "message": null,
+          "resultWatermark": {
+            "schemaVersion": 1,
+            "publishedResultCount": 2,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 1,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": false,
+            "incompleteReasons": [
+              "boundContextNotFinalized"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "valid": true,
+        "complete": false,
+        "class": "lost",
+        "reasonCodes": [
+          "boundContextNotFinalized"
+        ]
+      }
+    },
+    {
+      "name": "invalid-complete-false-unclassified",
+      "envelope": {
+        "retryAttempt": 0,
+        "messageType": "TestRunStatus.V2",
+        "payload": {
+          "messageType": "TestRunStatus.V2",
+          "serverId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "testRunId": "01K70B7K0C0W5PP4YVYZ6M0600",
+          "status": 7,
+          "message": null,
+          "resultWatermark": {
+            "schemaVersion": 1,
+            "publishedResultCount": 2,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": false,
+            "incompleteReasons": []
+          }
+        }
+      },
+      "expected": {
+        "valid": false,
+        "complete": false,
+        "class": "lost",
+        "reasonCodes": [
+          "unclassifiedIncomplete"
+        ],
+        "diagnostic": "unclassifiedIncomplete"
+      }
+    },
+    {
+      "name": "unbound-results-unverifiable",
+      "envelope": {
+        "retryAttempt": 0,
+        "messageType": "TestRunStatus.V2",
+        "payload": {
+          "messageType": "TestRunStatus.V2",
+          "serverId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "testRunId": "01K70B7K0C0W5PP4YVYZ6M0600",
+          "status": 7,
+          "message": null,
+          "resultWatermark": {
+            "schemaVersion": 1,
+            "publishedResultCount": 2,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 3,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": false,
+            "incompleteReasons": [
+              "unboundResults"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "valid": true,
+        "complete": false,
+        "class": "unverifiable",
+        "reasonCodes": [
+          "unboundResults"
+        ]
+      }
+    },
+    {
+      "name": "legacy-package-not-finalized",
+      "envelope": {
+        "retryAttempt": 0,
+        "messageType": "TestRunStatus.V2",
+        "payload": {
+          "messageType": "TestRunStatus.V2",
+          "serverId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "testRunId": "01K70B7K0C0W5PP4YVYZ6M0600",
+          "status": 7,
+          "message": null,
+          "resultWatermark": {
+            "schemaVersion": 1,
+            "publishedResultCount": 2,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 1,
+            "complete": false,
+            "incompleteReasons": [
+              "legacyUnfinalizedContext"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "valid": true,
+        "complete": false,
+        "class": "unverifiable",
+        "reasonCodes": [
+          "legacyPackageNotFinalized"
+        ]
+      }
+    },
+    {
+      "name": "capable-participant-missing-timeout",
+      "envelope": {
+        "retryAttempt": 0,
+        "messageType": "TestRunStatus.V2",
+        "payload": {
+          "messageType": "TestRunStatus.V2",
+          "serverId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "testRunId": "01K70B7K0C0W5PP4YVYZ6M0600",
+          "status": 7,
+          "message": null,
+          "resultWatermark": {
+            "schemaVersion": 1,
+            "publishedResultCount": 2,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": true,
+            "incompleteReasons": [],
+            "participantBridgeIds": [
+              "01K70B7K0C0W5PP4YVYZ6M0B00",
+              "01K70B7K0C0W5PP4YVYZ6M0B01"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "valid": true,
+        "complete": false,
+        "class": "lost",
+        "reasonCodes": [
+          "participantWatermarkMissing"
+        ],
+        "finalizationTimedOut": true
+      },
+      "participantCapabilities": {
+        "01K70B7K0C0W5PP4YVYZ6M0B00": "capable",
+        "01K70B7K0C0W5PP4YVYZ6M0B01": "capable"
+      },
+      "participantWatermarks": {
+        "01K70B7K0C0W5PP4YVYZ6M0B00": "proven"
+      }
+    },
+    {
+      "name": "lost-plus-unverifiable-dominates",
+      "envelope": {
+        "retryAttempt": 0,
+        "messageType": "TestRunStatus.V2",
+        "payload": {
+          "messageType": "TestRunStatus.V2",
+          "serverId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "testRunId": "01K70B7K0C0W5PP4YVYZ6M0600",
+          "status": 7,
+          "message": null,
+          "resultWatermark": {
+            "schemaVersion": 1,
+            "publishedResultCount": 2,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 1,
+            "unboundResultCount": 1,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": false,
+            "incompleteReasons": [
+              "publisherErrors",
+              "unboundResults"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "valid": true,
+        "complete": false,
+        "class": "lost",
+        "reasonCodes": [
+          "publisherErrors",
+          "unboundResults"
+        ]
+      }
+    },
+    {
+      "name": "missing-classification-fields",
+      "envelope": {
+        "retryAttempt": 0,
+        "messageType": "TestRunStatus.V2",
+        "payload": {
+          "messageType": "TestRunStatus.V2",
+          "serverId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "testRunId": "01K70B7K0C0W5PP4YVYZ6M0600",
+          "status": 7,
+          "message": null,
+          "resultWatermark": {
+            "schemaVersion": 1,
+            "publishedResultCount": 0,
+            "packageCount": 0,
+            "finalizedPackageCount": 0,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "complete": false
+          }
+        }
+      },
+      "expected": {
+        "valid": false,
+        "complete": false,
+        "class": "lost",
+        "reasonCodes": [
+          "missingClassificationField"
+        ]
+      }
+    },
+    {
+      "name": "v1-listed-participant-missing-before-deadline",
+      "change": "5c-3",
+      "envelope": {
+        "retryAttempt": 0,
+        "messageType": "TestRunStatus.V2",
+        "payload": {
+          "messageType": "TestRunStatus.V2",
+          "serverId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "testRunId": "01K70B7K0C0W5PP4YVYZ6M0600",
+          "status": 7,
+          "message": null,
+          "resultWatermark": {
+            "schemaVersion": 1,
+            "publishedResultCount": 2,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": true,
+            "incompleteReasons": [],
+            "participantBridgeIds": [
+              "01K70B7K0C0W5PP4YVYZ6M0B00",
+              "01K70B7K0C0W5PP4YVYZ6M0B01"
+            ]
+          }
+        }
+      },
+      "expected": {
+        "valid": true,
+        "complete": false,
+        "class": "unknown",
+        "reasonCodes": [
+          "finalizationPending"
+        ],
+        "finalizationTimedOut": false
+      },
+      "participantCapabilities": {
+        "01K70B7K0C0W5PP4YVYZ6M0B00": "capable",
+        "01K70B7K0C0W5PP4YVYZ6M0B01": "capable"
+      },
+      "participantWatermarks": {
+        "01K70B7K0C0W5PP4YVYZ6M0B00": "proven"
+      },
+      "notes": "5c-3 replaces legacy-capable-mixed-cluster-unverifiable: v1 treats every listed participant as capable."
+    }
+  ],
+  "reasonCodes": [
+    "legacyBridgeNoWatermark",
+    "unboundResults",
+    "legacyPackageNotFinalized",
+    "legacyClusterParticipant",
+    "publisherErrors",
+    "bridgeStateLost",
+    "capOverflow",
+    "drainTimeout",
+    "boundContextNotFinalized",
+    "participantWatermarkMissing",
+    "invalidWatermark",
+    "missingClassificationField",
+    "unclassifiedIncomplete",
+    "finalizationPending",
+    "resultCountShortAtTimeout"
+  ],
+  "resultFinalizationTimeoutSeconds": 900,
+  "dxmClassificationVectors": [
+    {
+      "name": "pending-before-timeout",
+      "input": {
+        "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "bridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+        "watermarks": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": {
+            "schemaVersion": 1,
+            "publishedResultCount": 3,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": true,
+            "incompleteReasons": []
+          }
+        },
+        "receivedDistinctCountByBridge": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": 2
+        },
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "nowUtc": "2026-10-06T13:05:00Z",
+        "participantCapabilities": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": "capable"
+        }
+      },
+      "expected": {
+        "class": "unknown",
+        "reasonCodes": [
+          "finalizationPending"
+        ]
+      },
+      "notes": "Terminal status arrived before final result; queues are not ordered."
+    },
+    {
+      "name": "satisfied-proven",
+      "input": {
+        "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "bridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+        "watermarks": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": {
+            "schemaVersion": 1,
+            "publishedResultCount": 3,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": true,
+            "incompleteReasons": []
+          }
+        },
+        "receivedDistinctCountByBridge": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": 3
+        },
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "nowUtc": "2026-10-06T13:05:00Z",
+        "participantCapabilities": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": "capable"
+        }
+      },
+      "expected": {
+        "class": "proven",
+        "reasonCodes": []
+      }
+    },
+    {
+      "name": "short-at-timeout-lost",
+      "input": {
+        "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "bridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+        "watermarks": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": {
+            "schemaVersion": 1,
+            "publishedResultCount": 3,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": true,
+            "incompleteReasons": []
+          }
+        },
+        "receivedDistinctCountByBridge": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": 2
+        },
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "nowUtc": "2026-10-06T13:16:00Z",
+        "participantCapabilities": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": "capable"
+        }
+      },
+      "expected": {
+        "class": "lost",
+        "reasonCodes": [
+          "resultCountShortAtTimeout"
+        ]
+      }
+    },
+    {
+      "name": "excess-lost-invalid-watermark",
+      "input": {
+        "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "bridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+        "watermarks": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": {
+            "schemaVersion": 1,
+            "publishedResultCount": 2,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": true,
+            "incompleteReasons": []
+          }
+        },
+        "receivedDistinctCountByBridge": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": 3
+        },
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "nowUtc": "2026-10-06T13:05:00Z",
+        "participantCapabilities": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": "capable"
+        }
+      },
+      "expected": {
+        "class": "lost",
+        "reasonCodes": [
+          "invalidWatermark"
+        ]
+      },
+      "notes": "Only bound distinct results count; greater-than publishedResultCount is contradictory."
+    },
+    {
+      "name": "unbound-only-legacy-unverifiable",
+      "input": {
+        "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "bridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+        "watermarks": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": {
+            "schemaVersion": 1,
+            "publishedResultCount": 0,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 4,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": false,
+            "incompleteReasons": [
+              "unboundResults"
+            ]
+          }
+        },
+        "receivedDistinctCountByBridge": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": 0
+        },
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "nowUtc": "2026-10-06T13:05:00Z",
+        "participantCapabilities": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": "capable"
+        }
+      },
+      "expected": {
+        "class": "unverifiable",
+        "reasonCodes": [
+          "unboundResults"
+        ]
+      },
+      "notes": "Unbound/legacy results are counted in unboundResultCount and excluded from the bound publishedResultCount comparison."
+    },
+    {
+      "name": "cluster-one-participant-pending",
+      "input": {
+        "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "bridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+        "participantBridgeIds": [
+          "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "01K70B7K0C0W5PP4YVYZ6M0B01"
+        ],
+        "watermarks": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": {
+            "schemaVersion": 1,
+            "publishedResultCount": 2,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": true,
+            "incompleteReasons": [],
+            "participantBridgeIds": [
+              "01K70B7K0C0W5PP4YVYZ6M0B00",
+              "01K70B7K0C0W5PP4YVYZ6M0B01"
+            ]
+          },
+          "01K70B7K0C0W5PP4YVYZ6M0B01": null
+        },
+        "receivedDistinctCountByBridge": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": 2
+        },
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "nowUtc": "2026-10-06T13:05:00Z",
+        "participantCapabilities": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": "capable",
+          "01K70B7K0C0W5PP4YVYZ6M0B01": "capable"
+        }
+      },
+      "expected": {
+        "class": "unknown",
+        "reasonCodes": [
+          "finalizationPending"
+        ]
+      }
+    },
+    {
+      "name": "5c-2-pre-terminal-pending",
+      "change": "5c-2",
+      "input": {
+        "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "orchestratorBridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+        "activationInstantUtc": "2026-10-06T12:30:00Z",
+        "watermarks": {},
+        "receivedDistinctCountByBridge": {},
+        "terminalStatusReceivedAtUtc": null,
+        "nowUtc": "2026-10-06T13:05:00Z",
+        "participantBridgeIds": null,
+        "participantCapabilities": {}
+      },
+      "expected": {
+        "class": "unknown",
+        "reasonCodes": [
+          "finalizationPending"
+        ],
+        "terminalStatusReceivedAtUtc": null
+      },
+      "notes": "Before the run-level terminal anchor exists, classification is pending, never lost or unverifiable."
+    },
+    {
+      "name": "5c-2-legacy-no-watermark-orchestrator-terminal",
+      "change": "5c-2",
+      "input": {
+        "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "orchestratorBridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+        "activationInstantUtc": "2026-10-06T12:30:00Z",
+        "watermarks": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": null
+        },
+        "receivedDistinctCountByBridge": {},
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "nowUtc": "2026-10-06T13:05:00Z",
+        "participantBridgeIds": null,
+        "participantCapabilities": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": "capable"
+        }
+      },
+      "expected": {
+        "class": "unverifiable",
+        "reasonCodes": [
+          "legacyBridgeNoWatermark"
+        ]
+      }
+    },
+    {
+      "name": "5c-2-invalid-participant-id",
+      "change": "5c-2",
+      "input": {
+        "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "orchestratorBridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+        "activationInstantUtc": "2026-10-06T12:30:00Z",
+        "watermarks": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": {
+            "schemaVersion": 1,
+            "publishedResultCount": 0,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": true,
+            "incompleteReasons": [],
+            "participantBridgeIds": [
+              "01K70B7K0C0W5PP4YVYZ6M0B00",
+              "not-a-ulid"
+            ]
+          }
+        },
+        "receivedDistinctCountByBridge": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": 0
+        },
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "nowUtc": "2026-10-06T13:05:00Z",
+        "participantBridgeIds": [
+          "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "not-a-ulid"
+        ],
+        "participantCapabilities": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": "capable"
+        }
+      },
+      "expected": {
+        "class": "lost",
+        "reasonCodes": [
+          "invalidWatermark"
+        ]
+      }
+    },
+    {
+      "name": "5c-2-non-participant-bound-results",
+      "change": "5c-2",
+      "input": {
+        "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "orchestratorBridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+        "activationInstantUtc": "2026-10-06T12:30:00Z",
+        "watermarks": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": {
+            "schemaVersion": 1,
+            "publishedResultCount": 0,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": true,
+            "incompleteReasons": [],
+            "participantBridgeIds": [
+              "01K70B7K0C0W5PP4YVYZ6M0B00"
+            ]
+          }
+        },
+        "receivedDistinctCountByBridge": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": 0,
+          "01K70B7K0C0W5PP4YVYZ6M0B02": 1
+        },
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "nowUtc": "2026-10-06T13:05:00Z",
+        "participantBridgeIds": [
+          "01K70B7K0C0W5PP4YVYZ6M0B00"
+        ],
+        "participantCapabilities": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": "capable"
+        }
+      },
+      "expected": {
+        "class": "lost",
+        "reasonCodes": [
+          "invalidWatermark"
+        ]
+      },
+      "notes": "Bound results from a bridge outside listed participants plus orchestrator are invalid."
+    },
+    {
+      "name": "5c-2-empty-evaluated-set",
+      "change": "5c-2",
+      "input": {
+        "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "orchestratorBridgeId": null,
+        "activationInstantUtc": "2026-10-06T12:30:00Z",
+        "watermarks": {},
+        "receivedDistinctCountByBridge": {},
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "nowUtc": "2026-10-06T13:05:00Z",
+        "participantBridgeIds": [],
+        "participantCapabilities": {}
+      },
+      "expected": {
+        "class": "lost",
+        "reasonCodes": [
+          "unclassifiedIncomplete"
+        ]
+      }
+    },
+    {
+      "name": "5c-2-late-worker-close-after-deadline",
+      "change": "5c-2",
+      "input": {
+        "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "orchestratorBridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+        "activationInstantUtc": "2026-10-06T12:30:00Z",
+        "watermarks": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": {
+            "schemaVersion": 1,
+            "publishedResultCount": 0,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": true,
+            "incompleteReasons": [],
+            "participantBridgeIds": [
+              "01K70B7K0C0W5PP4YVYZ6M0B00",
+              "01K70B7K0C0W5PP4YVYZ6M0B01"
+            ]
+          },
+          "01K70B7K0C0W5PP4YVYZ6M0B01": null
+        },
+        "receivedDistinctCountByBridge": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": 0
+        },
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "nowUtc": "2026-10-06T13:16:00Z",
+        "participantBridgeIds": [
+          "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "01K70B7K0C0W5PP4YVYZ6M0B01"
+        ],
+        "participantCapabilities": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": "capable",
+          "01K70B7K0C0W5PP4YVYZ6M0B01": "capable"
+        },
+        "lateParticipantWatermarkReceivedAtUtc": "2026-10-06T13:17:00Z"
+      },
+      "expected": {
+        "class": "lost",
+        "reasonCodes": [
+          "participantWatermarkMissing"
+        ]
+      },
+      "notes": "The single run-level deadline has expired before the worker watermark is available."
+    },
+    {
+      "name": "5c-2-pre-activation-terminal",
+      "change": "5c-2",
+      "input": {
+        "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "orchestratorBridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+        "activationInstantUtc": "2026-10-06T13:30:00Z",
+        "watermarks": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": null
+        },
+        "receivedDistinctCountByBridge": {},
+        "runTerminalCompletedAtUtc": "2026-10-06T13:00:00Z",
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:01:00Z",
+        "nowUtc": "2026-10-06T13:35:00Z",
+        "participantBridgeIds": null,
+        "participantCapabilities": {}
+      },
+      "expected": {
+        "class": "unverifiable",
+        "reasonCodes": [
+          "legacyBridgeNoWatermark"
+        ]
+      }
+    },
+    {
+      "name": "5c-3-unresolved-finalization-precedes-unverifiable",
+      "change": "5c-3",
+      "input": {
+        "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "orchestratorBridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+        "activationInstantUtc": "2026-10-06T12:30:00Z",
+        "watermarks": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": {
+            "schemaVersion": 1,
+            "publishedResultCount": 3,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 1,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": false,
+            "incompleteReasons": []
+          }
+        },
+        "receivedDistinctCountByBridge": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": 2
+        },
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "nowUtc": "2026-10-06T13:05:00Z",
+        "participantBridgeIds": [
+          "01K70B7K0C0W5PP4YVYZ6M0B00"
+        ],
+        "participantCapabilities": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": "capable"
+        }
+      },
+      "expected": {
+        "class": "unknown",
+        "reasonCodes": [
+          "finalizationPending"
+        ]
+      }
+    },
+    {
+      "name": "5c-3-finalization-boundary-899999",
+      "change": "5c-3",
+      "input": {
+        "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "orchestratorBridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+        "activationInstantUtc": "2026-10-06T12:30:00Z",
+        "watermarks": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": {
+            "schemaVersion": 1,
+            "publishedResultCount": 3,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": true,
+            "incompleteReasons": []
+          }
+        },
+        "receivedDistinctCountByBridge": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": 2
+        },
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "nowUtc": "2026-10-06T13:14:59.999Z",
+        "participantBridgeIds": [
+          "01K70B7K0C0W5PP4YVYZ6M0B00"
+        ],
+        "participantCapabilities": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": "capable"
+        }
+      },
+      "expected": {
+        "class": "unknown",
+        "reasonCodes": [
+          "finalizationPending"
+        ]
+      }
+    },
+    {
+      "name": "5c-3-finalization-boundary-900000",
+      "change": "5c-3",
+      "input": {
+        "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "orchestratorBridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+        "activationInstantUtc": "2026-10-06T12:30:00Z",
+        "watermarks": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": {
+            "schemaVersion": 1,
+            "publishedResultCount": 3,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": true,
+            "incompleteReasons": []
+          }
+        },
+        "receivedDistinctCountByBridge": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": 2
+        },
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "nowUtc": "2026-10-06T13:15:00.000Z",
+        "participantBridgeIds": [
+          "01K70B7K0C0W5PP4YVYZ6M0B00"
+        ],
+        "participantCapabilities": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": "capable"
+        }
+      },
+      "expected": {
+        "class": "lost",
+        "reasonCodes": [
+          "resultCountShortAtTimeout"
+        ]
+      }
+    },
+    {
+      "name": "5c-3-finalization-boundary-900001",
+      "change": "5c-3",
+      "input": {
+        "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "orchestratorBridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+        "activationInstantUtc": "2026-10-06T12:30:00Z",
+        "watermarks": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": {
+            "schemaVersion": 1,
+            "publishedResultCount": 3,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": true,
+            "incompleteReasons": []
+          }
+        },
+        "receivedDistinctCountByBridge": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": 2
+        },
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "nowUtc": "2026-10-06T13:15:00.001Z",
+        "participantBridgeIds": [
+          "01K70B7K0C0W5PP4YVYZ6M0B00"
+        ],
+        "participantCapabilities": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": "capable"
+        }
+      },
+      "expected": {
+        "class": "lost",
+        "reasonCodes": [
+          "resultCountShortAtTimeout"
+        ]
+      }
+    },
+    {
+      "name": "5c-3-late-result-after-deadline-does-not-repair",
+      "change": "5c-3",
+      "input": {
+        "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "orchestratorBridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+        "activationInstantUtc": "2026-10-06T12:30:00Z",
+        "watermarks": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": {
+            "schemaVersion": 1,
+            "publishedResultCount": 3,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": true,
+            "incompleteReasons": []
+          }
+        },
+        "receivedDistinctCountByBridge": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": 3
+        },
+        "lastBoundResultReceivedAtUtcByBridge": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": "2026-10-06T13:15:00.001Z"
+        },
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "nowUtc": "2026-10-06T13:15:00.001Z",
+        "participantBridgeIds": [
+          "01K70B7K0C0W5PP4YVYZ6M0B00"
+        ],
+        "participantCapabilities": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": "capable"
+        }
+      },
+      "expected": {
+        "class": "lost",
+        "reasonCodes": [
+          "resultCountShortAtTimeout"
+        ]
+      }
+    },
+    {
+      "name": "5c-3-dxm-tracking-cap-overflow",
+      "change": "5c-3",
+      "input": {
+        "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "orchestratorBridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+        "activationInstantUtc": "2026-10-06T12:30:00Z",
+        "watermarks": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": {
+            "schemaVersion": 1,
+            "publishedResultCount": 100001,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": true,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": false,
+            "incompleteReasons": []
+          }
+        },
+        "receivedDistinctCountByBridge": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": 100000
+        },
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "nowUtc": "2026-10-06T13:01:00Z",
+        "participantBridgeIds": [
+          "01K70B7K0C0W5PP4YVYZ6M0B00"
+        ],
+        "participantCapabilities": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": "capable"
+        },
+        "dxmTrackingCapOverflow": true
+      },
+      "expected": {
+        "class": "lost",
+        "reasonCodes": [
+          "capOverflow"
+        ]
+      }
+    },
+    {
+      "name": "5c-3-dxm-restart-not-rehydrated-before-deadline",
+      "change": "5c-3",
+      "input": {
+        "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "orchestratorBridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+        "activationInstantUtc": "2026-10-06T12:30:00Z",
+        "watermarks": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": {
+            "schemaVersion": 1,
+            "publishedResultCount": 0,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": true,
+            "incompleteReasons": []
+          }
+        },
+        "receivedDistinctCountByBridge": {},
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "nowUtc": "2026-10-06T13:05:00Z",
+        "participantBridgeIds": [
+          "01K70B7K0C0W5PP4YVYZ6M0B00"
+        ],
+        "participantCapabilities": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": "capable"
+        },
+        "dxmRestarted": true,
+        "durableCompletenessRehydrated": false
+      },
+      "expected": {
+        "class": "unknown",
+        "reasonCodes": [
+          "finalizationPending"
+        ]
+      }
+    },
+    {
+      "name": "5c-3-cluster-close-ack-deadline-missing-worker",
+      "change": "5c-3",
+      "input": {
+        "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "orchestratorBridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+        "activationInstantUtc": "2026-10-06T12:30:00Z",
+        "watermarks": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": {
+            "schemaVersion": 1,
+            "publishedResultCount": 2,
+            "packageCount": 1,
+            "finalizedPackageCount": 1,
+            "publisherErrorCount": 0,
+            "unboundResultCount": 0,
+            "stateLost": false,
+            "capOverflow": false,
+            "drainTimedOut": false,
+            "boundUnfinalizedContextCount": 0,
+            "legacyUnfinalizedContextCount": 0,
+            "complete": true,
+            "incompleteReasons": [],
+            "participantBridgeIds": [
+              "01K70B7K0C0W5PP4YVYZ6M0B00",
+              "01K70B7K0C0W5PP4YVYZ6M0B01"
+            ]
+          },
+          "01K70B7K0C0W5PP4YVYZ6M0B01": null
+        },
+        "receivedDistinctCountByBridge": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": 2
+        },
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "nowUtc": "2026-10-06T13:15:00.000Z",
+        "clusterCloseAckTimedOut": true,
+        "participantBridgeIds": [
+          "01K70B7K0C0W5PP4YVYZ6M0B00",
+          "01K70B7K0C0W5PP4YVYZ6M0B01"
+        ],
+        "participantCapabilities": {
+          "01K70B7K0C0W5PP4YVYZ6M0B00": "capable",
+          "01K70B7K0C0W5PP4YVYZ6M0B01": "capable"
+        }
+      },
+      "expected": {
+        "class": "lost",
+        "reasonCodes": [
+          "participantWatermarkMissing"
+        ]
+      }
+    }
+  ],
+  "consumerCompletenessReadVectors": [
+    {
+      "name": "5c-3-unavailable-require-proven-warning",
+      "change": "5c-3",
+      "input": {
+        "isAvailable": false,
+        "availabilityReason": "completenessSourceUnavailable",
+        "requireProvenResultCompleteness": true,
+        "testResultCount": 5,
+        "nowUtc": "2026-10-06T13:05:00Z"
+      },
+      "expected": {
+        "verdict": "WARNING",
+        "reasonCodes": [
+          "completenessSourceUnavailable"
+        ],
+        "mapsToResultsLost": false,
+        "cacheable": false,
+        "nextReevaluationDelaySeconds": 30,
+        "serviceBackoffMaxSeconds": 300
+      }
+    },
+    {
+      "name": "5c-3-unavailable-opt-out-warning",
+      "change": "5c-3",
+      "input": {
+        "isAvailable": false,
+        "availabilityReason": "completenessSourceUnavailable",
+        "requireProvenResultCompleteness": false,
+        "testResultCount": 5,
+        "settled": true,
+        "nowUtc": "2026-10-06T13:05:00Z"
+      },
+      "expected": {
+        "verdict": "WARNING",
+        "reasonCodes": [
+          "completenessSourceUnavailable"
+        ],
+        "mapsToResultsLost": false,
+        "cacheable": false,
+        "nextReevaluationDelaySeconds": 30,
+        "serviceBackoffMaxSeconds": 300
+      }
+    },
+    {
+      "name": "5c-3-unverified-settle-boundary-299999",
+      "change": "5c-3",
+      "input": {
+        "class": "unverifiable",
+        "reasonCodes": [
+          "legacyBridgeNoWatermark"
+        ],
+        "requireProvenResultCompleteness": false,
+        "testResultCount": 5,
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "lastResultReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "nowUtc": "2026-10-06T13:04:59.999Z"
+      },
+      "expected": {
+        "verdict": "WARNING",
+        "reasonCodes": [
+          "completenessSettling"
+        ],
+        "usableAsUnverifiable": false
+      }
+    },
+    {
+      "name": "5c-3-unverified-settle-boundary-300000",
+      "change": "5c-3",
+      "input": {
+        "class": "unverifiable",
+        "reasonCodes": [
+          "legacyBridgeNoWatermark"
+        ],
+        "requireProvenResultCompleteness": false,
+        "testResultCount": 5,
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "lastResultReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "nowUtc": "2026-10-06T13:05:00.000Z"
+      },
+      "expected": {
+        "verdict": "policyPath",
+        "reasonCodes": [
+          "completenessUnverified"
+        ],
+        "usableAsUnverifiable": true
+      }
+    },
+    {
+      "name": "5c-3-unverified-settle-boundary-300001",
+      "change": "5c-3",
+      "input": {
+        "class": "unverifiable",
+        "reasonCodes": [
+          "legacyBridgeNoWatermark"
+        ],
+        "requireProvenResultCompleteness": false,
+        "testResultCount": 5,
+        "terminalStatusReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "lastResultReceivedAtUtc": "2026-10-06T13:00:00Z",
+        "nowUtc": "2026-10-06T13:05:00.001Z"
+      },
+      "expected": {
+        "verdict": "policyPath",
+        "reasonCodes": [
+          "completenessUnverified"
+        ],
+        "usableAsUnverifiable": true
+      }
+    },
+    {
+      "name": "5c-3-tracking-disabled-opt-out",
+      "change": "5c-3",
+      "input": {
+        "class": "unverifiable",
+        "reasonCodes": [
+          "completenessTrackingDisabled"
+        ],
+        "requireProvenResultCompleteness": false,
+        "testResultCount": 5,
+        "settled": true,
+        "nowUtc": "2026-10-06T13:10:00Z"
+      },
+      "expected": {
+        "verdict": "policyPath",
+        "reasonCodes": [
+          "completenessUnverified",
+          "completenessTrackingDisabled"
+        ],
+        "usableAsUnverifiable": true,
+        "mapsToResultsLost": false
+      }
+    }
+  ],
+  "consumerReasonCodes": [
+    "completenessFinalizing",
+    "completenessSettling",
+    "completenessSourceUnavailable",
+    "completenessTrackingDisabled",
+    "completenessUnproven",
+    "completenessUnverified",
+    "completenessUnverifiedNoResults",
+    "resultsLost"
+  ],
+  "statusEnumEncoding": {
+    "Completed": 7,
+    "note": "Full TestRunStatus.V2 queue envelopes use the existing numeric enum encoding (5c-3)."
+  },
+  "watermarkMergeVectors": [
+    {
+      "name": "5c-3-duplicate-identical-watermark-idempotent",
+      "change": "5c-3",
+      "input": {
+        "first": {
+          "schemaVersion": 1,
+          "publishedResultCount": 2,
+          "packageCount": 1,
+          "finalizedPackageCount": 1,
+          "publisherErrorCount": 0,
+          "unboundResultCount": 0,
+          "stateLost": false,
+          "capOverflow": false,
+          "drainTimedOut": false,
+          "boundUnfinalizedContextCount": 0,
+          "legacyUnfinalizedContextCount": 0,
+          "complete": true,
+          "incompleteReasons": []
+        },
+        "replay": {
+          "schemaVersion": 1,
+          "publishedResultCount": 2,
+          "packageCount": 1,
+          "finalizedPackageCount": 1,
+          "publisherErrorCount": 0,
+          "unboundResultCount": 0,
+          "stateLost": false,
+          "capOverflow": false,
+          "drainTimedOut": false,
+          "boundUnfinalizedContextCount": 0,
+          "legacyUnfinalizedContextCount": 0,
+          "complete": true,
+          "incompleteReasons": []
+        },
+        "receivedDistinctCount": 2
+      },
+      "expected": {
+        "class": "proven",
+        "reasonCodes": [],
+        "deadlineExtended": false
+      }
+    },
+    {
+      "name": "5c-3-replay-cannot-clear-loss",
+      "change": "5c-3",
+      "input": {
+        "first": {
+          "schemaVersion": 1,
+          "publishedResultCount": 2,
+          "packageCount": 1,
+          "finalizedPackageCount": 1,
+          "publisherErrorCount": 1,
+          "unboundResultCount": 0,
+          "stateLost": false,
+          "capOverflow": false,
+          "drainTimedOut": false,
+          "boundUnfinalizedContextCount": 0,
+          "legacyUnfinalizedContextCount": 0,
+          "complete": false,
+          "incompleteReasons": []
+        },
+        "replay": {
+          "schemaVersion": 1,
+          "publishedResultCount": 2,
+          "packageCount": 1,
+          "finalizedPackageCount": 1,
+          "publisherErrorCount": 0,
+          "unboundResultCount": 0,
+          "stateLost": false,
+          "capOverflow": false,
+          "drainTimedOut": false,
+          "boundUnfinalizedContextCount": 0,
+          "legacyUnfinalizedContextCount": 0,
+          "complete": true,
+          "incompleteReasons": []
+        },
+        "receivedDistinctCount": 2
+      },
+      "expected": {
+        "class": "lost",
+        "reasonCodes": [
+          "publisherErrors"
+        ],
+        "lossSticky": true
+      }
+    },
+    {
+      "name": "5c-3-conflicting-participant-set-lost",
+      "change": "5c-3",
+      "input": {
+        "first": {
+          "schemaVersion": 1,
+          "publishedResultCount": 2,
+          "packageCount": 1,
+          "finalizedPackageCount": 1,
+          "publisherErrorCount": 0,
+          "unboundResultCount": 0,
+          "stateLost": false,
+          "capOverflow": false,
+          "drainTimedOut": false,
+          "boundUnfinalizedContextCount": 0,
+          "legacyUnfinalizedContextCount": 0,
+          "complete": true,
+          "incompleteReasons": [],
+          "participantBridgeIds": [
+            "01K70B7K0C0W5PP4YVYZ6M0B00",
+            "01K70B7K0C0W5PP4YVYZ6M0B01"
+          ]
+        },
+        "replay": {
+          "schemaVersion": 1,
+          "publishedResultCount": 2,
+          "packageCount": 1,
+          "finalizedPackageCount": 1,
+          "publisherErrorCount": 0,
+          "unboundResultCount": 0,
+          "stateLost": false,
+          "capOverflow": false,
+          "drainTimedOut": false,
+          "boundUnfinalizedContextCount": 0,
+          "legacyUnfinalizedContextCount": 0,
+          "complete": true,
+          "incompleteReasons": [],
+          "participantBridgeIds": [
+            "01K70B7K0C0W5PP4YVYZ6M0B00"
+          ]
+        }
+      },
+      "expected": {
+        "class": "lost",
+        "reasonCodes": [
+          "invalidWatermark"
+        ]
+      }
+    }
+  ]
+}

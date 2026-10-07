@@ -1,0 +1,75 @@
+{
+  "schema": "https://schema.skyline.be/qaops/conformance/producer-transport-v1/noreply-login-vectors",
+  "vectors": [
+    {
+      "input": "12345+jane-doe@users.noreply.github.com",
+      "expected": {
+        "isPrivateNoreply": true,
+        "login": "jane-doe",
+        "validLogin": true
+      }
+    },
+    {
+      "input": "john-doe@users.noreply.github.com",
+      "expected": {
+        "isPrivateNoreply": true,
+        "login": "john-doe",
+        "validLogin": true
+      }
+    },
+    {
+      "input": "-bad@users.noreply.github.com",
+      "expected": {
+        "isPrivateNoreply": true,
+        "login": "-bad",
+        "validLogin": false,
+        "reason": "invalid-login"
+      }
+    },
+    {
+      "input": "bad-@users.noreply.github.com",
+      "expected": {
+        "isPrivateNoreply": true,
+        "login": "bad-",
+        "validLogin": false,
+        "reason": "invalid-login"
+      }
+    },
+    {
+      "input": "bad--name@users.noreply.github.com",
+      "expected": {
+        "isPrivateNoreply": true,
+        "login": "bad--name",
+        "validLogin": false,
+        "reason": "invalid-login"
+      }
+    },
+    {
+      "input": "this-login-name-is-way-way-way-too-long@users.noreply.github.com",
+      "expected": {
+        "isPrivateNoreply": true,
+        "login": "this-login-name-is-way-way-way-too-long",
+        "validLogin": true
+      },
+      "name": "valid-39-character-login"
+    },
+    {
+      "input": "dev@example.com",
+      "expected": {
+        "isPrivateNoreply": false,
+        "login": null,
+        "validLogin": null
+      }
+    },
+    {
+      "name": "invalid-40-character-login",
+      "input": "this-login-name-is-way-way-way-too-longx@users.noreply.github.com",
+      "expected": {
+        "isPrivateNoreply": true,
+        "login": "this-login-name-is-way-way-way-too-longx",
+        "validLogin": false,
+        "reason": "invalid-login"
+      }
+    }
+  ]
+}

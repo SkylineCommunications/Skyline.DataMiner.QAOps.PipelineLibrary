@@ -50,6 +50,28 @@ function Invoke-DotNetTestAndPublishResults {
         try { & $Name @Parameters } catch { [pscustomobject]@{ Supported=$true; Accepted=$false; StatusCode=0; ErrorCode='terminatingError'; Message=$_.Exception.Message } }
     }
 
+    function ConvertTo-QAOpsRedactedText {
+        param([Parameter()][AllowNull()][string]$Text)
+        if ($null -eq $Text) { return '' }
+        $redacted = [string]$Text
+        foreach ($secret in @($env:QAOPS_PUBLICATION_CONTEXT)) {
+            if (-not [string]::IsNullOrWhiteSpace($secret)) { $redacted = $redacted.Replace($secret, '[REDACTED-QAOPS-PUBLICATION-CONTEXT]') }
+        }
+        $redacted = [regex]::Replace($redacted, '(?i)(QAOPS_PUBLICATION_CONTEXT|X-QAOps-Publication-Context)\s*[:=]\s*\S+', '$1=[REDACTED-QAOPS-PUBLICATION-CONTEXT]')
+        return $redacted
+    }
+
+    function Invoke-QAOpsRedactedDotNet {
+        param([string[]]$Arguments)
+        $lines = @(& dotnet @Arguments 2>&1)
+        $exit = $LASTEXITCODE
+        foreach ($line in $lines) {
+            $text = ConvertTo-QAOpsRedactedText -Text ($line | Out-String)
+            if (-not [string]::IsNullOrWhiteSpace($text)) { Write-Host $text.TrimEnd() }
+        }
+        return $exit
+    }
+
     $usesMtpBool = $false
     if (-not [string]::IsNullOrWhiteSpace($UsesMTP)) { $usesMtpBool = $UsesMTP.Trim().ToLowerInvariant() -eq 'true' }
     if (-not (Test-Path -LiteralPath $TestDllPath -PathType Leaf)) { throw "Test assembly not found: $TestDllPath" }
@@ -63,6 +85,7 @@ function Invoke-DotNetTestAndPublishResults {
     $acceptedCount = 0
     $manifestSupported = $true
     $finalizationSupported = $true
+    $legacyWarningWritten = $false
 
     if (Test-Path -LiteralPath $resultsPath -PathType Leaf) { Remove-Item -LiteralPath $resultsPath -Force }
 
@@ -85,8 +108,8 @@ function Invoke-DotNetTestAndPublishResults {
             New-Item -Path $mtpResultsDirectory -ItemType Directory -Force | Out-Null
             $arguments = @('test','--test-modules',$TestDllPath,'--report-trx','--report-trx-filename',$ResultsFileName,'--results-directory',$mtpResultsDirectory)
             if (-not [string]::IsNullOrWhiteSpace($TestFilter)) { $arguments += @('--filter',$TestFilter) }
-            & dotnet @arguments
-            if ($LASTEXITCODE -ne 0) { Write-Warning "dotnet test --test-modules returned exit code $LASTEXITCODE for $TestDllPath (will be reported from TRX)." }
+            $dotnetExitCode = Invoke-QAOpsRedactedDotNet -Arguments $arguments
+            if ($dotnetExitCode -ne 0) { Write-Warning "dotnet test --test-modules returned exit code $dotnetExitCode for $TestDllPath (will be reported from TRX)." }
             $candidate = Join-Path $mtpResultsDirectory $ResultsFileName
             if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) { $candidate = @(Get-ChildItem -LiteralPath $mtpResultsDirectory -Filter $ResultsFileName -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName }
             if ($candidate -and (Test-Path -LiteralPath $candidate -PathType Leaf)) { Copy-Item -LiteralPath $candidate -Destination $resultsPath -Force }
@@ -96,8 +119,8 @@ function Invoke-DotNetTestAndPublishResults {
             Write-Host "Executing: dotnet test `"$TestDllPath`"" -ForegroundColor Cyan
             $arguments = @('test',$TestDllPath,'--logger',("trx;LogFileName=$resultsPath"))
             if (-not [string]::IsNullOrWhiteSpace($TestFilter)) { $arguments += @('--filter',$TestFilter) }
-            & dotnet @arguments
-            if ($LASTEXITCODE -ne 0) { Write-Warning "dotnet test returned exit code $LASTEXITCODE for $TestDllPath (will be reported from TRX)." }
+            $dotnetExitCode = Invoke-QAOpsRedactedDotNet -Arguments $arguments
+            if ($dotnetExitCode -ne 0) { Write-Warning "dotnet test returned exit code $dotnetExitCode for $TestDllPath (will be reported from TRX)." }
         }
         $executionStopwatch.Stop()
         Write-Host "Test execution completed in $($executionStopwatch.Elapsed)." -ForegroundColor Cyan
@@ -114,10 +137,10 @@ function Invoke-DotNetTestAndPublishResults {
         }
 
         if ($manifestSupported) {
-            $invocations = @($enriched | ForEach-Object { [pscustomobject]@{ testInvocationId=$_.Lookup.TestInvocationId; displayName=$_.Result.DisplayName; maintainers=$_.Lookup.Maintainers } })
+            $invocations = @($enriched | ForEach-Object { [pscustomobject]@{ testInvocationId=$_.Lookup.TestInvocationId; displayName=$_.Result.DisplayName; maintainers=$_.Lookup.Maintainers; diagnostics=(@($_.Lookup.Diagnostics) + @($_.Result.Diagnostics)); comparable=$_.Result.Comparable } })
             $manifestParams = @{ CountSemanticsVersion='qaops-counts-v1'; ExpectedTests=$invocations.Count; DiscoveredTests=$invocations.Count; TestInvocations=$invocations }
             $manifestResult = Invoke-QAOpsCapabilityCommand -Name 'Push-TestRunManifest' -Parameters $manifestParams
-            if ($manifestResult -and $manifestResult.PSObject.Properties.Name -contains 'Supported' -and -not $manifestResult.Supported) { $manifestSupported = $false }
+            if ($manifestResult -and $manifestResult.PSObject.Properties.Name -contains 'Supported' -and -not $manifestResult.Supported) { $manifestSupported = $false; Write-Warning 'Push-TestRunManifest is unavailable; continuing with legacy result publishing.' }
             elseif ($manifestResult -and $manifestResult.PSObject.Properties.Name -contains 'Accepted' -and -not $manifestResult.Accepted) { [void]$publisherErrors.Add([pscustomobject]@{ testInvocationId=$null; code='PushTestRunManifestNotAccepted'; message=(Limit-String -stringToLimit ([string]$manifestResult.Message) -maxCharacters 1024) }) }
         }
 
@@ -131,6 +154,10 @@ function Invoke-DotNetTestAndPublishResults {
             $parameters = @{ Outcome=$om.Outcome; Name=$r.DisplayName; Duration=$r.Duration; Message=$om.Message; TestAspect='Assertion' }
             if ($caseCommand) {
                 $supportedParams = $caseCommand.Parameters
+                if (-not $legacyWarningWritten -and (-not $supportedParams.ContainsKey('ProducerEventId') -or -not $supportedParams.ContainsKey('TestInvocationId') -or -not $supportedParams.ContainsKey('AttemptId') -or -not $supportedParams.ContainsKey('Maintainers'))) {
+                    Write-Warning 'Push-TestCaseResult does not support QAOps transport metadata; continuing with legacy result publishing.'
+                    $legacyWarningWritten = $true
+                }
                 if ($supportedParams.ContainsKey('ProducerEventId')) { $parameters['ProducerEventId'] = $item.ProducerEventId }
                 if ($supportedParams.ContainsKey('TestInvocationId')) { $parameters['TestInvocationId'] = $item.Lookup.TestInvocationId }
                 if ($supportedParams.ContainsKey('AttemptId')) { $parameters['AttemptId'] = $attemptId }
@@ -163,7 +190,7 @@ function Invoke-DotNetTestAndPublishResults {
         if ($finalizationSupported) {
             $errorsForFinalization = @($publisherErrors | Select-Object -First 100)
             $finalResult = Invoke-QAOpsCapabilityCommand -Name 'Push-TestRunFinalization' -Parameters @{ PublishedResultCount=$acceptedCount; PublisherErrors=$errorsForFinalization }
-            if ($finalResult -and $finalResult.PSObject.Properties.Name -contains 'Supported' -and -not $finalResult.Supported) { $finalizationSupported = $false }
+            if ($finalResult -and $finalResult.PSObject.Properties.Name -contains 'Supported' -and -not $finalResult.Supported) { $finalizationSupported = $false; Write-Warning 'Push-TestRunFinalization is unavailable; run completeness may remain unverifiable.' }
             elseif ($finalResult -and $finalResult.PSObject.Properties.Name -contains 'Accepted' -and -not $finalResult.Accepted) { Write-Warning "Push-TestRunFinalization was not accepted: $($finalResult.Message)" }
         }
         Write-Host "Published $acceptedCount QAOps assertion result(s). Publisher error(s): $($publisherErrors.Count)." -ForegroundColor Cyan
@@ -175,7 +202,6 @@ function Invoke-DotNetTestAndPublishResults {
         }
     }
 }
-
 
 
 
