@@ -1,3 +1,32 @@
+function ConvertTo-QAOpsRedactedText {
+    param([Parameter()][AllowNull()][string]$Text)
+    if ($null -eq $Text) { return '' }
+    $redacted = [string]$Text
+    foreach ($secret in @($env:QAOPS_PUBLICATION_CONTEXT)) {
+        if (-not [string]::IsNullOrWhiteSpace($secret)) { $redacted = $redacted.Replace($secret, '[REDACTED-QAOPS-PUBLICATION-CONTEXT]') }
+    }
+    $redacted = [regex]::Replace($redacted, '(?i)(QAOPS_PUBLICATION_CONTEXT|X-QAOps-Publication-Context)\s*[:=]\s*\S+', '$1=[REDACTED-QAOPS-PUBLICATION-CONTEXT]')
+    return $redacted
+}
+
+function Invoke-QAOpsRedactedDotNet {
+    param([string[]]$Arguments)
+    $oldEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $tail = New-Object System.Collections.Queue
+    try {
+        & dotnet @Arguments 2>&1 | ForEach-Object {
+            if ($_ -is [System.Management.Automation.ErrorRecord]) { $line = $_.ToString() } else { $line = [string]$_ }
+            $text = ConvertTo-QAOpsRedactedText -Text $line
+            if ($tail.Count -ge 200) { [void]$tail.Dequeue() }
+            [void]$tail.Enqueue($text)
+            if (-not [string]::IsNullOrWhiteSpace($text)) { Write-Host $text }
+        }
+        return $LASTEXITCODE
+    }
+    finally { $ErrorActionPreference = $oldEap }
+}
+
 function Invoke-DotNetTestAndPublishResults {
     <#
     .SYNOPSIS
@@ -48,28 +77,6 @@ function Invoke-DotNetTestAndPublishResults {
         $cmd = Get-Command -Name $Name -ErrorAction SilentlyContinue
         if ($null -eq $cmd) { return [pscustomobject]@{ Supported=$false; Accepted=$false; StatusCode=0; ErrorCode='cmdletMissing'; Message="$Name is not available." } }
         try { & $Name @Parameters } catch { [pscustomobject]@{ Supported=$true; Accepted=$false; StatusCode=0; ErrorCode='terminatingError'; Message=$_.Exception.Message } }
-    }
-
-    function ConvertTo-QAOpsRedactedText {
-        param([Parameter()][AllowNull()][string]$Text)
-        if ($null -eq $Text) { return '' }
-        $redacted = [string]$Text
-        foreach ($secret in @($env:QAOPS_PUBLICATION_CONTEXT)) {
-            if (-not [string]::IsNullOrWhiteSpace($secret)) { $redacted = $redacted.Replace($secret, '[REDACTED-QAOPS-PUBLICATION-CONTEXT]') }
-        }
-        $redacted = [regex]::Replace($redacted, '(?i)(QAOPS_PUBLICATION_CONTEXT|X-QAOps-Publication-Context)\s*[:=]\s*\S+', '$1=[REDACTED-QAOPS-PUBLICATION-CONTEXT]')
-        return $redacted
-    }
-
-    function Invoke-QAOpsRedactedDotNet {
-        param([string[]]$Arguments)
-        $lines = @(& dotnet @Arguments 2>&1)
-        $exit = $LASTEXITCODE
-        foreach ($line in $lines) {
-            $text = ConvertTo-QAOpsRedactedText -Text ($line | Out-String)
-            if (-not [string]::IsNullOrWhiteSpace($text)) { Write-Host $text.TrimEnd() }
-        }
-        return $exit
     }
 
     $usesMtpBool = $false
@@ -133,11 +140,14 @@ function Invoke-DotNetTestAndPublishResults {
         foreach ($row in $rows) {
             $lookup = Resolve-QAOpsRuntimeMaintainers -Entries $sidecar.Entries -Assembly $row.Assembly -FullyQualifiedName $row.FullyQualifiedName -DataCaseId $row.DataCaseId -Target 'default'
             foreach ($diag in @($lookup.Diagnostics)) { if ($diag.code -eq 'maintainer-conflict') { Write-Warning "Maintainer conflict for $($diag.key); publishing without maintainers." } }
+            if (@($lookup.Diagnostics | Where-Object { $_.code -eq 'identity-invalid' }).Count -gt 0) {
+                [void]$publisherErrors.Add([pscustomobject]@{ testInvocationId=$null; code='identity-invalid'; message='The test identity could not be represented as a QAOps canonical key.' })
+            }
             [void]$enriched.Add([pscustomobject]@{ Result=$row; Lookup=$lookup; ProducerEventId=New-QAOpsUlid })
         }
 
         if ($manifestSupported) {
-            $invocations = @($enriched | ForEach-Object { [pscustomobject]@{ testInvocationId=$_.Lookup.TestInvocationId; displayName=$_.Result.DisplayName; maintainers=$_.Lookup.Maintainers; diagnostics=(@($_.Lookup.Diagnostics) + @($_.Result.Diagnostics)); comparable=$_.Result.Comparable } })
+            $invocations = @($enriched | Where-Object { -not [string]::IsNullOrEmpty($_.Lookup.TestInvocationId) } | ForEach-Object { [pscustomobject]@{ testInvocationId=$_.Lookup.TestInvocationId; displayName=$_.Result.DisplayName; maintainers=$_.Lookup.Maintainers; diagnostics=(@($_.Lookup.Diagnostics) + @($_.Result.Diagnostics)); comparable=$_.Result.Comparable } })
             $manifestParams = @{ CountSemanticsVersion='qaops-counts-v1'; ExpectedTests=$invocations.Count; DiscoveredTests=$invocations.Count; TestInvocations=$invocations }
             $manifestResult = Invoke-QAOpsCapabilityCommand -Name 'Push-TestRunManifest' -Parameters $manifestParams
             if ($manifestResult -and $manifestResult.PSObject.Properties.Name -contains 'Supported' -and -not $manifestResult.Supported) { $manifestSupported = $false; Write-Warning 'Push-TestRunManifest is unavailable; continuing with legacy result publishing.' }
@@ -159,7 +169,7 @@ function Invoke-DotNetTestAndPublishResults {
                     $legacyWarningWritten = $true
                 }
                 if ($supportedParams.ContainsKey('ProducerEventId')) { $parameters['ProducerEventId'] = $item.ProducerEventId }
-                if ($supportedParams.ContainsKey('TestInvocationId')) { $parameters['TestInvocationId'] = $item.Lookup.TestInvocationId }
+                if ($supportedParams.ContainsKey('TestInvocationId') -and -not [string]::IsNullOrEmpty($item.Lookup.TestInvocationId)) { $parameters['TestInvocationId'] = $item.Lookup.TestInvocationId }
                 if ($supportedParams.ContainsKey('AttemptId')) { $parameters['AttemptId'] = $attemptId }
                 $maintainerValidation = Test-QAOpsMaintainerEnvelope -Maintainers $item.Lookup.Maintainers
                 if ($supportedParams.ContainsKey('Maintainers') -and $maintainerValidation.Valid) { $parameters['Maintainers'] = $maintainerValidation.Json }
@@ -202,7 +212,5 @@ function Invoke-DotNetTestAndPublishResults {
         }
     }
 }
-
-
 
 

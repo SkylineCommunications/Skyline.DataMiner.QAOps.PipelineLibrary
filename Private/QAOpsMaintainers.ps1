@@ -57,10 +57,13 @@ function New-QAOpsTestInvocationIdentity {
     <# Builds the canonical runtime sidecar key using producer-transport-v1 §9.2 percent-encoding and shortening. #>
     [CmdletBinding()]
     param([Parameter(Mandatory=$true)][string]$Assembly,[Parameter(Mandatory=$true)][string]$FullyQualifiedName,[Parameter()][AllowNull()][string]$DataCaseId,[Parameter()][AllowNull()][string]$Target)
-    $namespace = ConvertTo-QAOpsKeyComponent -Value $Assembly
-    $identity = ConvertTo-QAOpsKeyComponent -Value $FullyQualifiedName
-    $case = ConvertTo-QAOpsKeyComponent -Value $(if ($null -eq $DataCaseId) { '' } else { [string]$DataCaseId })
-    $t = ConvertTo-QAOpsKeyComponent -Value $(if ([string]::IsNullOrWhiteSpace($Target)) { 'default' } else { [string]$Target })
+    try {
+        $namespace = ConvertTo-QAOpsKeyComponent -Value $Assembly
+        $identity = ConvertTo-QAOpsKeyComponent -Value $FullyQualifiedName
+        $case = ConvertTo-QAOpsKeyComponent -Value $(if ($null -eq $DataCaseId) { '' } else { [string]$DataCaseId })
+        $t = ConvertTo-QAOpsKeyComponent -Value $(if ([string]::IsNullOrWhiteSpace($Target)) { 'default' } else { [string]$Target })
+    }
+    catch { return [pscustomobject]@{ TestInvocationId=$null; Diagnostics=@([pscustomobject]@{ code='identity-invalid' }) } }
     $full = ('{0}|{1}|data:{2}|target:{3}' -f $namespace,$identity,$case,$t)
     $diagnostics = @()
     if ((Get-QAOpsScalarCount -Value $full) -gt 1024) {
@@ -69,6 +72,7 @@ function New-QAOpsTestInvocationIdentity {
         finally { $sha.Dispose() }
         $hashText = ConvertTo-QAOpsBase64Url -Bytes $hash
         $fixedLength = (Get-QAOpsScalarCount -Value ($namespace + '||hash:' + $hashText + '|target:' + $t))
+        if ($fixedLength -gt 1024) { return [pscustomobject]@{ TestInvocationId=$null; Diagnostics=@([pscustomobject]@{ code='identity-invalid' }) } }
         $prefixBudget = [Math]::Max(0, [Math]::Min(128, 1024 - $fixedLength))
         $identity = Get-QAOpsScalarPrefix -Value $identity -MaxScalars $prefixBudget
         $full = ('{0}|{1}|hash:{2}|target:{3}' -f $namespace,$identity,$hashText,$t)
@@ -159,6 +163,7 @@ function Resolve-QAOpsRuntimeMaintainers {
     param([Parameter(Mandatory=$true)][object]$Entries,[Parameter(Mandatory=$true)][string]$Assembly,[Parameter(Mandatory=$true)][string]$FullyQualifiedName,[Parameter()][string]$DataCaseId,[Parameter()][string]$Target)
     $identity = New-QAOpsTestInvocationIdentity -Assembly $Assembly -FullyQualifiedName $FullyQualifiedName -DataCaseId $DataCaseId -Target $Target
     $testInvocationId = $identity.TestInvocationId
+    if ([string]::IsNullOrEmpty($testInvocationId)) { return [pscustomobject]@{ TestInvocationId=$null; MatchedKey=$null; Maintainers=$null; Diagnostics=@($identity.Diagnostics) } }
     $keys = @(
         $testInvocationId,
         (New-QAOpsTestInvocationId -Assembly $Assembly -FullyQualifiedName $FullyQualifiedName -DataCaseId $DataCaseId -Target 'default'),

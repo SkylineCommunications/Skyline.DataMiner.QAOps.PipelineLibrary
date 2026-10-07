@@ -1,6 +1,6 @@
 {
   "schema": "https://schema.skyline.be/qaops/conformance/source-metadata/v1",
-  "generatedAtUtc": "2026-10-07T11:19:18Z",
+  "generatedAtUtc": "2026-10-07T11:39:22Z",
   "files": [
     {
       "file": "maintainers-envelope-cases.json",
@@ -29,8 +29,8 @@
     {
       "file": "runtime-lookup-vectors.json",
       "sourcePath": "D:\\GITHUB_IMPORTANT\\Skyline-QAOps-QG\\docs\\quality-gates\\conformance\\producer-transport-v1\\runtime-lookup-vectors.json",
-      "specCommit": "2a8c799",
-      "sha256": "369a41f3fb097e55b1bef8df968adb15026a0f674667f52490919de183b12b2c"
+      "specCommit": "3043dc5",
+      "sha256": "046f04c5a2fd00a3cae2f84a63d049280f23b19fd058010ef72834d3ddb80437"
     },
     {
       "file": "sidecar-examples.json",

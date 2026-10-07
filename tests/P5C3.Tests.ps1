@@ -9,7 +9,8 @@ Describe 'P5C3 transport conformance' {
         $metaPath = Join-Path $script:RepoRoot 'tests\fixtures\conformance\source-metadata.json'
         $meta = Get-Content -LiteralPath $metaPath -Raw | ConvertFrom-Json
         $meta.files | ForEach-Object {
-            $_.specCommit | Should -Be '2a8c799'
+            if ($_.file -eq 'runtime-lookup-vectors.json') { $_.specCommit | Should -Be '3043dc5' }
+            else { $_.specCommit | Should -Be '2a8c799' }
             $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path (Split-Path $metaPath -Parent) $_.file)).Hash.ToLowerInvariant()
             $actual | Should -Be $_.sha256
         }

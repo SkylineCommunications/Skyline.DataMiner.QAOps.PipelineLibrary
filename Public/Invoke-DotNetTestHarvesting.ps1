@@ -104,7 +104,13 @@ function Invoke-DotNetTestHarvesting {
     }
 
     $arguments = @('tool','run','qaops-qaframework','--','harvest-dotnet','--content',$paths.ContentPath,'--github-lookup',$GitHubLookup.ToLowerInvariant(),'--time-budget-seconds',[string]$TimeBudgetSeconds,'--json')
-    foreach ($assembly in @($TestAssemblyPath)) { if (-not [string]::IsNullOrWhiteSpace($assembly)) { $arguments += @('--assembly',$assembly) } }
+    foreach ($assembly in @($TestAssemblyPath)) {
+        if (-not [string]::IsNullOrWhiteSpace($assembly)) {
+            if ([System.IO.Path]::IsPathRooted($assembly)) { $resolvedAssembly = [System.IO.Path]::GetFullPath($assembly) }
+            else { $resolvedAssembly = [System.IO.Path]::GetFullPath((Join-Path $paths.ContentPath $assembly)) }
+            $arguments += @('--assembly',$resolvedAssembly)
+        }
+    }
     if ($resolvedRepositoryRoot) { $arguments += @('--repository-root',$resolvedRepositoryRoot) }
     if ($resolvedReviewedManifestPath) { $arguments += @('--reviewed-manifest',$resolvedReviewedManifestPath) }
     if ($GitHubOrganizations -and @($GitHubOrganizations).Count -gt 0) { $arguments += @('--github-orgs',($GitHubOrganizations -join ',')) }
@@ -135,7 +141,6 @@ function Invoke-DotNetTestHarvesting {
     try { return ($result.StdOut.Trim() | ConvertFrom-Json -ErrorAction Stop) }
     catch { return New-SkippedHarvestReport -Code 'nonJsonOutput' -Message 'Skipped .NET maintainer harvesting because harvest-dotnet did not return a valid JSON report.' }
 }
-
 
 
 
