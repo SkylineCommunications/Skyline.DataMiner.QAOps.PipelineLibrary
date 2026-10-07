@@ -64,15 +64,18 @@ function Invoke-DotNetTestHarvesting {
 
     $cacheBase = if (-not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) { $env:LOCALAPPDATA } else { [System.IO.Path]::GetTempPath() }
     $toolDir = Join-Path (Join-Path (Join-Path $cacheBase 'Skyline') 'QAOps') 'qaops-qaframework-tool'
-    if (-not (Test-Path -LiteralPath $toolDir -PathType Container)) { New-Item -Path $toolDir -ItemType Directory -Force | Out-Null }
+    try {
+        if (-not (Test-Path -LiteralPath $toolDir -PathType Container)) { New-Item -Path $toolDir -ItemType Directory -Force -ErrorAction Stop | Out-Null }
+    }
+    catch { return New-SkippedHarvestReport -Code 'toolCacheUnavailable' -Message 'Skipped .NET maintainer harvesting because the per-user tool cache is unavailable.' }
     $manifestPath = Join-Path (Join-Path $toolDir '.config') 'dotnet-tools.json'
     $mutex = $null
     $hasMutex = $false
     try {
-        $mutex = New-Object System.Threading.Mutex($false, 'Global\Skyline.QAOps.QAFrameworkOrchestrator.ToolCache')
+        try { $mutex = New-Object System.Threading.Mutex($false, 'Global\Skyline.QAOps.QAFrameworkOrchestrator.ToolCache') } catch { return New-SkippedHarvestReport -Code 'toolLockUnavailable' -Message 'Skipped .NET maintainer harvesting because the tool-cache lock is unavailable.' }
         $lockTimeoutSeconds = 60
         if (-not [string]::IsNullOrWhiteSpace($env:QAOPS_QAFRAMEWORK_TOOL_LOCK_TIMEOUT_SECONDS)) { [int]::TryParse($env:QAOPS_QAFRAMEWORK_TOOL_LOCK_TIMEOUT_SECONDS, [ref]$lockTimeoutSeconds) | Out-Null; if ($lockTimeoutSeconds -lt 0) { $lockTimeoutSeconds = 0 } }
-        if ($lockTimeoutSeconds -eq 0) { $hasMutex = $false } else { try { $hasMutex = $mutex.WaitOne([TimeSpan]::FromSeconds($lockTimeoutSeconds)) } catch { $hasMutex = $false } }
+        if ($lockTimeoutSeconds -eq 0) { $hasMutex = $false } else { try { $hasMutex = $mutex.WaitOne([TimeSpan]::FromSeconds($lockTimeoutSeconds)) } catch [System.Threading.AbandonedMutexException] { $hasMutex = $true } catch { $hasMutex = $false } }
         if ($hasMutex) {
             try { $null = Install-QAFrameworkTool -PipelineDirectory $toolDir -TimeoutSeconds ([Math]::Max(120, $TimeBudgetSeconds + 60)) }
             catch {
@@ -84,6 +87,7 @@ function Invoke-DotNetTestHarvesting {
             return New-SkippedHarvestReport -Code 'toolInstallContention' -Message 'Skipped .NET maintainer harvesting because another process held the tool-cache lock and no cached tool exists yet.'
         }
     }
+    catch { return New-SkippedHarvestReport -Code 'toolInstallFailed' -Message 'Skipped .NET maintainer harvesting because the QAFramework orchestrator tool cache could not be prepared.' }
     finally {
         if ($hasMutex -and $mutex) { try { $mutex.ReleaseMutex() | Out-Null } catch {} }
         if ($mutex) { $mutex.Dispose() }
@@ -109,6 +113,7 @@ function Invoke-DotNetTestHarvesting {
     try {
         $result = Invoke-QAFrameworkDotNet -Arguments $arguments -WorkingDirectory $toolDir -Environment $envOverrides -TimeoutSeconds ($TimeBudgetSeconds + 60)
     }
+    catch { return New-SkippedHarvestReport -Code 'toolLaunchFailed' -Message 'Skipped .NET maintainer harvesting because the QAFramework orchestrator tool could not be started.' }
     finally { $tokenPlain = $null }
 
     if ($result.TimedOut) { return New-SkippedHarvestReport -Code 'toolTimeout' -Message 'Skipped .NET maintainer harvesting because harvest-dotnet timed out.' }
@@ -120,5 +125,8 @@ function Invoke-DotNetTestHarvesting {
     try { return ($result.StdOut.Trim() | ConvertFrom-Json -ErrorAction Stop) }
     catch { return New-SkippedHarvestReport -Code 'nonJsonOutput' -Message 'Skipped .NET maintainer harvesting because harvest-dotnet did not return a valid JSON report.' }
 }
+
+
+
 
 

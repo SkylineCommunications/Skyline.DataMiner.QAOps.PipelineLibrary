@@ -81,13 +81,16 @@ function Invoke-DotNetTestAndPublishResults {
         }
         elseif ($usesMtpBool) {
             Write-Host "Executing: dotnet test --test-modules `"$TestDllPath`"" -ForegroundColor Cyan
-            $arguments = @('test','--test-modules',$TestDllPath,'--report-trx','--report-trx-filename',$ResultsFileName)
+            $mtpResultsDirectory = Join-Path $contentPath ('.qaops-mtp-results-' + ([guid]::NewGuid().ToString('N')))
+            New-Item -Path $mtpResultsDirectory -ItemType Directory -Force | Out-Null
+            $arguments = @('test','--test-modules',$TestDllPath,'--report-trx','--report-trx-filename',$ResultsFileName,'--results-directory',$mtpResultsDirectory)
             if (-not [string]::IsNullOrWhiteSpace($TestFilter)) { $arguments += @('--filter',$TestFilter) }
             & dotnet @arguments
             if ($LASTEXITCODE -ne 0) { Write-Warning "dotnet test --test-modules returned exit code $LASTEXITCODE for $TestDllPath (will be reported from TRX)." }
-            $candidate = Join-Path (Join-Path (Split-Path -Path $TestDllPath -Parent) 'TestResults') $ResultsFileName
-            if (Test-Path -LiteralPath $candidate -PathType Leaf) { Copy-Item -LiteralPath $candidate -Destination $resultsPath -Force }
-            elseif (-not (Test-Path -LiteralPath $resultsPath -PathType Leaf)) { Write-Warning 'MTP did not produce the requested TRX file. Install Microsoft.Testing.Extensions.TrxReport and ensure --report-trx is supported. No finalization will be sent for this package.'; return }
+            $candidate = Join-Path $mtpResultsDirectory $ResultsFileName
+            if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) { $candidate = @(Get-ChildItem -LiteralPath $mtpResultsDirectory -Filter $ResultsFileName -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1).FullName }
+            if ($candidate -and (Test-Path -LiteralPath $candidate -PathType Leaf)) { Copy-Item -LiteralPath $candidate -Destination $resultsPath -Force }
+            else { Write-Warning 'MTP did not produce the requested TRX file. Install Microsoft.Testing.Extensions.TrxReport and ensure --report-trx is supported. No finalization will be sent for this package.'; return }
         }
         else {
             Write-Host "Executing: dotnet test `"$TestDllPath`"" -ForegroundColor Cyan
@@ -144,7 +147,13 @@ function Invoke-DotNetTestAndPublishResults {
                     if ($parameters.ContainsKey('Maintainers') -and $_.Exception.Message -match 'maintain') {
                         Write-Warning "Push-TestCaseResult rejected maintainer metadata for $($item.Lookup.TestInvocationId); retrying without maintainers."
                         $parameters.Remove('Maintainers')
-                        try { $pushResult = Push-TestCaseResult @parameters; $acceptedCount++ }
+                        try {
+                            $pushResult = Push-TestCaseResult @parameters
+                            $retryAccepted = $true
+                            if ($pushResult -and $pushResult.PSObject.Properties.Name -contains 'Accepted') { $retryAccepted = [bool]$pushResult.Accepted }
+                            if ($retryAccepted) { $acceptedCount++ }
+                            else { [void]$publisherErrors.Add([pscustomobject]@{ testInvocationId=$item.Lookup.TestInvocationId; code='PushTestCaseResultNotAccepted'; message=(Limit-String -stringToLimit ([string]$pushResult.Message) -maxCharacters 1024) }); Write-Warning "Push-TestCaseResult retry was not accepted for $($item.Lookup.TestInvocationId)." }
+                        }
                         catch { [void]$publisherErrors.Add([pscustomobject]@{ testInvocationId=$item.Lookup.TestInvocationId; code='PushTestCaseResultFailed'; message=(Limit-String -stringToLimit $_.Exception.Message -maxCharacters 1024) }); Write-Warning "Push-TestCaseResult failed for $($item.Lookup.TestInvocationId): $($_.Exception.Message)" }
                     } else { [void]$publisherErrors.Add([pscustomobject]@{ testInvocationId=$item.Lookup.TestInvocationId; code='PushTestCaseResultFailed'; message=(Limit-String -stringToLimit $_.Exception.Message -maxCharacters 1024) }); Write-Warning "Push-TestCaseResult failed for $($item.Lookup.TestInvocationId): $($_.Exception.Message)" }
                 }
@@ -160,10 +169,14 @@ function Invoke-DotNetTestAndPublishResults {
         Write-Host "Published $acceptedCount QAOps assertion result(s). Publisher error(s): $($publisherErrors.Count)." -ForegroundColor Cyan
     }
     finally {
+        if ($mtpResultsDirectory -and (Test-Path -LiteralPath $mtpResultsDirectory -PathType Container)) { try { Remove-Item -LiteralPath $mtpResultsDirectory -Recurse -Force } catch { Write-Warning "Failed to cleanup MTP output directory: $mtpResultsDirectory. $($_.Exception.Message)" } }
         if (Test-Path -LiteralPath $resultsPath -PathType Leaf) {
             try { Remove-Item -LiteralPath $resultsPath -Force } catch { Write-Warning "Failed to cleanup test output file: $resultsPath. $($_.Exception.Message)" }
         }
     }
 }
+
+
+
 
 

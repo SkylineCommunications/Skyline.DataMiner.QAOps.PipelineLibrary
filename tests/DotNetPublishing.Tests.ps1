@@ -119,7 +119,7 @@ Describe 'Invoke-DotNetTestAndPublishResults MTP publishing' {
             $script:Published = @()
             function dotnet {
                 param([Parameter(ValueFromRemainingArguments=$true)][object[]]$Arguments)
-                $outDir = Join-Path (Split-Path -Path $Dll -Parent) 'TestResults'
+                $outDir = $Arguments[([array]::IndexOf($Arguments,'--results-directory') + 1)]
                 New-Item -Path $outDir -ItemType Directory -Force | Out-Null
                 Copy-Item -LiteralPath (Join-Path $RepoRoot 'tests\fixtures\trx\mstest3-mtp.trx') -Destination (Join-Path $outDir 'mtp.trx') -Force
                 $global:LASTEXITCODE = 0
@@ -142,6 +142,7 @@ Describe 'Invoke-DotNetTestAndPublishResults MTP publishing' {
         }
     }
 }
+
 
 
 

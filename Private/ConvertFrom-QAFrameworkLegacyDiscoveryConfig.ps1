@@ -3,7 +3,7 @@ function ConvertFrom-QAFrameworkLegacyDiscoveryConfig {
     [CmdletBinding()]
     param([Parameter(Mandatory=$true)][object]$Document)
     $result = @{}
-    foreach ($name in @('folderTagPrefix','regressionTestsRoot','onlyTests','forceOnlyTests','baselineGate','includeDisabled')) {
+    foreach ($name in @('folderTagPrefix','regressionTestsRoot','onlyTests','forceOnlyTests','baselineGate','includeDisabled','keywords','excludeKeywords','squads','excludeSquads')) {
         if ($Document.PSObject.Properties.Name -contains $name) { $result[$name] = $Document.$name }
     }
     if ($Document.PSObject.Properties.Name -contains 'excludedTests') { $result['excludedTests'] = $Document.excludedTests }
@@ -19,3 +19,5 @@ function ConvertFrom-QAFrameworkLegacyDiscoveryConfig {
     }
     return $result
 }
+
+
