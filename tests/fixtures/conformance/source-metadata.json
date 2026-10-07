@@ -29,8 +29,8 @@
     {
       "file": "runtime-lookup-vectors.json",
       "sourcePath": "D:\\GITHUB_IMPORTANT\\Skyline-QAOps-QG\\docs\\quality-gates\\conformance\\producer-transport-v1\\runtime-lookup-vectors.json",
-      "specCommit": "3043dc5",
-      "sha256": "046f04c5a2fd00a3cae2f84a63d049280f23b19fd058010ef72834d3ddb80437"
+      "specCommit": "feb12b4",
+      "sha256": "7ed81766ef4eb26ff3ce2368ce3382f2a9987430e58751ccca7df9ebeb6491fc"
     },
     {
       "file": "sidecar-examples.json",
