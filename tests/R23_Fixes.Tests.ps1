@@ -43,6 +43,23 @@ Describe 'R23 launcher and optional-harvest hardening' {
             @($warnings).Count | Should -Be 1
         }
     }
+
+    It 'R23_M3_abandoned_tool_cache_mutex_counts_as_acquired' {
+        $content = Join-Path $TestDrive 'content-abandoned'
+        New-Item -Path (Join-Path $content 'TestHarvesting') -ItemType Directory -Force | Out-Null
+        New-Item -Path (Join-Path $content 'TestPackagePipeline') -ItemType Directory -Force | Out-Null
+        $abandon = '$m = New-Object System.Threading.Mutex($false, ''Global\Skyline.QAOps.QAFrameworkOrchestrator.ToolCache''); $null = $m.WaitOne(); [Environment]::Exit(0)'
+        $p = Start-Process -FilePath 'powershell' -ArgumentList @('-NoProfile','-Command',$abandon) -PassThru -WindowStyle Hidden
+        $p.WaitForExit(10000) | Should -BeTrue
+        InModuleScope Skyline.DataMiner.QAOps.PipelineLibrary -Parameters @{ Content = $content } {
+            $script:InstallCalls = 0
+            Mock Install-QAFrameworkTool { $script:InstallCalls++; [pscustomobject]@{} }
+            Mock Invoke-QAFrameworkDotNet { [pscustomobject]@{ ExitCode = 0; TimedOut = $false; StdOut = '{"status":"ok"}'; StdErr = '' } }
+            $report = Invoke-DotNetTestHarvesting -TestPackageContentPath $Content
+            $report.status | Should -Be 'ok'
+            $script:InstallCalls | Should -Be 1
+        }
+    }
 }
 
 Describe 'R23 sidecar and identity hardening' {
@@ -147,6 +164,5 @@ Describe 'R23 discovery, MTP, and retry accounting' {
         }
     }
 }
-
 
 
