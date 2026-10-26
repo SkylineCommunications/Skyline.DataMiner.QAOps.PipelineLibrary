@@ -49,7 +49,13 @@ Describe 'R23 launcher and optional-harvest hardening' {
         New-Item -Path (Join-Path $content 'TestHarvesting') -ItemType Directory -Force | Out-Null
         New-Item -Path (Join-Path $content 'TestPackagePipeline') -ItemType Directory -Force | Out-Null
         $abandon = '$m = New-Object System.Threading.Mutex($false, ''Global\Skyline.QAOps.QAFrameworkOrchestrator.ToolCache''); $null = $m.WaitOne(); [Environment]::Exit(0)'
-        $p = Start-Process -FilePath 'powershell' -ArgumentList @('-NoProfile','-Command',$abandon) -PassThru -WindowStyle Hidden
+        $start = @{
+            FilePath = (Get-Process -Id $PID).Path
+            ArgumentList = @('-NoProfile', '-EncodedCommand', [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($abandon)))
+            PassThru = $true
+        }
+        if ($env:OS -eq 'Windows_NT') { $start['WindowStyle'] = 'Hidden' }
+        $p = Start-Process @start
         $p.WaitForExit(10000) | Should -BeTrue
         InModuleScope Skyline.DataMiner.QAOps.PipelineLibrary -Parameters @{ Content = $content } {
             $script:InstallCalls = 0
@@ -164,5 +170,4 @@ Describe 'R23 discovery, MTP, and retry accounting' {
         }
     }
 }
-
 

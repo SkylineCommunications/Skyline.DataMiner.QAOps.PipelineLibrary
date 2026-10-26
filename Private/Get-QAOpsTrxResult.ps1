@@ -37,7 +37,7 @@ function Get-QAOpsTrxResult {
         $codeBase = if ($tm) { $tm.GetAttribute('codeBase') } else { '' }
         $unitAssembly = $AssemblyName
         if (-not [string]::IsNullOrWhiteSpace($codeBase)) {
-            $leaf = [System.IO.Path]::GetFileName($codeBase)
+            $leaf = [System.IO.Path]::GetFileName(($codeBase -replace '\\', '/'))
             if (-not [string]::IsNullOrWhiteSpace($leaf) -and $leaf.EndsWith('.dll', [System.StringComparison]::OrdinalIgnoreCase)) { $unitAssembly = $leaf }
         }
         if (-not [string]::IsNullOrWhiteSpace($id)) { $unitTests[$id] = [pscustomobject]@{ FullyQualifiedName=$fqn; MethodName=$methodName; MethodDataCase=$methodDataCase; AssemblyName=$unitAssembly } }

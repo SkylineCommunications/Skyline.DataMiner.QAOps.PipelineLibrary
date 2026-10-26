@@ -11,12 +11,24 @@ Describe 'P5C3F2 redacted native dotnet execution' {
         $env:QAOPS_PUBLICATION_CONTEXT = 'p5c3f2-secret'
         $stubDir = Join-Path $TestDrive 'stubbin'
         New-Item -Path $stubDir -ItemType Directory -Force | Out-Null
-        @'
+        if ($env:OS -eq 'Windows_NT') {
+            @'
 @echo off
 echo X-QAOps-Publication-Context: %QAOPS_PUBLICATION_CONTEXT% 1>&2
 if "%1"=="fail" exit /b 1
 exit /b 0
 '@ | Set-Content -LiteralPath (Join-Path $stubDir 'dotnet.cmd') -Encoding ASCII
+        }
+        else {
+            $stubPath = Join-Path $stubDir 'dotnet'
+            @'
+#!/usr/bin/env sh
+echo "X-QAOps-Publication-Context: $QAOPS_PUBLICATION_CONTEXT" >&2
+if [ "$1" = "fail" ]; then exit 1; fi
+exit 0
+'@ | Set-Content -LiteralPath $stubPath -Encoding ASCII
+            & chmod '+x' $stubPath
+        }
         $env:PATH = $stubDir + [System.IO.Path]::PathSeparator + $env:PATH
     }
 
