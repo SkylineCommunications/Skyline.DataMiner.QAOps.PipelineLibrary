@@ -1,0 +1,27 @@
+{
+  "schema": "https://schema.skyline.be/qaops/conformance/producer-transport-v1/testcase-result-id-vectors",
+  "algorithm": "ULID timestamp = producerEventId timestamp; entropy = SHA-256(UTF-8 \"runId|bridgeId|producerEventId\")[0..10]",
+  "vectors": [
+    {
+      "name": "same-run-bridge-event",
+      "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+      "bridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+      "producerEventId": "01K70B7K0C0W5PP4YVYZ6M0601",
+      "expectedTestCaseResultId": "01K70B7K0C7TECNGA1W39RWBH0"
+    },
+    {
+      "name": "different-bridge",
+      "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+      "bridgeId": "01K70B7K0C0W5PP4YVYZ6M0B01",
+      "producerEventId": "01K70B7K0C0W5PP4YVYZ6M0601",
+      "expectedTestCaseResultId": "01K70B7K0CARSS5VWW0VYAGB0V"
+    },
+    {
+      "name": "different-event",
+      "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+      "bridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+      "producerEventId": "01K70B7K0C0W5PP4YVYZ6M0602",
+      "expectedTestCaseResultId": "01K70B7K0CQ7P9DXQEK0SVWYX1"
+    }
+  ]
+}

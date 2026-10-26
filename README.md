@@ -23,7 +23,7 @@ The public functions are:
 | `Initialize-QAFrameworkAgents` | `setup` | Prepare eligible Windows DataMiner Agents through QAOps Bridge. |
 | `Invoke-QAFrameworkTestPackage` | `run` | Revalidate Agent setup, execute the selected test package, and publish results. |
 
-Each function resolves a package-local tool manifest under `TestPackagePipeline/.config/dotnet-tools.json`. It installs the latest stable tool if the manifest does not include it and updates the tool if it is already present. If `TestPackagePipeline/NuGet.config` does not exist, the function creates one containing only nuget.org. Existing manifests and NuGet configuration are preserved.
+Each function resolves a package-local tool manifest under `TestPackagePipeline/.config/dotnet-tools.json`. It installs the latest stable tool if the manifest does not include it and updates the tool if it is already present. If `TestPackagePipeline/NuGet.config` exists, the function uses it. If it does not exist, no repository or user-profile NuGet configuration is created; dotnet uses the machine-configured package sources so private/company feeds are not hidden by a generated nuget.org-only file.
 
 The machine running the scripts needs the .NET SDK/runtime required by the orchestrator. The tool package must be available from a configured NuGet source. Harvesting can run on a developer machine or build agent; setup and test execution run through QAOps Bridge. The controller does not need DataMiner installed.
 
@@ -63,6 +63,14 @@ The migration removes these low-level exports: `Import-QAFrameworkTestMetadata`,
 
 The QAFramework shims do not depend on `QAOps.PowerShell`. `Invoke-DotNetTestAndPublishResults` remains a separate function and continues to use the QAOps result-publishing cmdlets.
 
+
+## Invoke-DotNetTestHarvesting
+
+`Invoke-DotNetTestHarvesting` is the build-time wrapper for `.NET` maintainer metadata. It calls the QAFramework Orchestrator `harvest-dotnet` command, writes/updates `TestHarvesting\dependencies.generated\qaops.maintainers.json`, and returns the tool JSON report.
+
+The wrapper installs the tool into a per-user cache outside the test package. If `dotnet`, NuGet, the tool, `harvest-dotnet`, or JSON output is unavailable, it returns a `status = skipped` report with one warning and never fails the package build because of maintainer metadata. A GitHub token, when supplied, is passed only to the child process as `QAOPS_GITHUB_TOKEN`.
+
+Copy `Templates/TestDiscovery.DotNet.sample.ps1` into `TestHarvesting\TestDiscovery.ps1` after the test binaries are copied to `TestHarvesting\tests.generated`.
 ## Invoke-DotNetTestAndPublishResults
 
 Runs `dotnet test` for a given test assembly, reads the generated `.trx` file, and publishes individual test results through `Push-TestCaseResult`.
@@ -84,6 +92,19 @@ Runs `dotnet test` for a given test assembly, reads the generated `.trx` file, a
 4. Parses the TRX XML and loops through all `UnitTestResult` entries.
 5. Publishes passed tests as `OK` and failed, error, timeout, aborted, or unexpected outcomes as `Fail`.
 6. Logs the durations and counts, then removes the temporary TRX file.
+
+When the producer cmdlet supports invocation and event identities, each TRX
+invocation publishes an Assertion and a terminal Execution with the same invocation
+and attempt identities, but different event IDs. This preserves assertion detail
+while making completed, passed, failed, and skipped invocation counts measurable.
+Finalization counts accepted emissions, not logical tests. Older cmdlets retain
+their existing single-Assertion behavior and cannot prove terminal invocation
+coverage.
+
+Identity-capable manifest cmdlets also receive a stable selection key containing
+the assembly, runner, filter, target, and skipped-result publication mode. Exact
+logical counters require this count-domain identity; matching assertion-row totals
+alone do not establish coverage or cross-run comparability.
 
 ### Examples
 

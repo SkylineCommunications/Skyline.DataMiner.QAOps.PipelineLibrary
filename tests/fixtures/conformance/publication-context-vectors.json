@@ -1,0 +1,91 @@
+{
+  "schema": "https://schema.skyline.be/qaops/conformance/producer-transport-v1/publication-context-vectors",
+  "header": "X-QAOps-Publication-Context",
+  "environmentVariable": "QAOPS_PUBLICATION_CONTEXT",
+  "vectors": [
+    {
+      "name": "valid-context-result",
+      "contextState": {
+        "token": "opaque-128-bit-token",
+        "runId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "testPackageId": "01K70B7K0C0W5PP4YVYZ6M0P00",
+        "bridgeId": "01K70B7K0C0W5PP4YVYZ6M0B00",
+        "closed": false
+      },
+      "request": {
+        "header": "opaque-128-bit-token",
+        "endpoint": "/QAOps/testcaseresult"
+      },
+      "expected": {
+        "statusCode": 200,
+        "errorCode": null,
+        "attributedRunId": "01K70B7K0C0W5PP4YVYZ6M0600",
+        "attributedPackageId": "01K70B7K0C0W5PP4YVYZ6M0P00",
+        "unbound": false
+      }
+    },
+    {
+      "name": "missing-context-legacy-unbound",
+      "contextState": null,
+      "request": {
+        "header": null,
+        "endpoint": "/QAOps/testcaseresult"
+      },
+      "expected": {
+        "statusCode": 200,
+        "errorCode": null,
+        "legacyAmbientAttribution": true,
+        "unbound": true,
+        "completeAllowed": false
+      }
+    },
+    {
+      "name": "unknown-context-rejected",
+      "contextState": null,
+      "request": {
+        "header": "unknown-token",
+        "endpoint": "/QAOps/testcaseresult"
+      },
+      "expected": {
+        "statusCode": 409,
+        "errorCode": "publicationContextUnknown",
+        "accepted": false,
+        "producerCountsPublisherError": true,
+        "crash": false
+      }
+    },
+    {
+      "name": "closed-context-rejected",
+      "contextState": {
+        "token": "closed-token",
+        "closed": true
+      },
+      "request": {
+        "header": "closed-token",
+        "endpoint": "/QAOps/testrun/finalization"
+      },
+      "expected": {
+        "statusCode": 409,
+        "errorCode": "publicationContextClosed",
+        "accepted": false,
+        "producerCountsPublisherError": true,
+        "crash": false
+      }
+    },
+    {
+      "name": "originator-cannot-override-worker-context",
+      "originatorEnvironment": {
+        "QAOPS_PUBLICATION_CONTEXT": "originator-token",
+        "OTHER": "value"
+      },
+      "workerIssuedToken": "worker-token",
+      "expectedWorkerEnvironment": {
+        "QAOPS_PUBLICATION_CONTEXT": "worker-token",
+        "OTHER": "value"
+      },
+      "expected": {
+        "reservedNameOverridden": true
+      }
+    }
+  ]
+}

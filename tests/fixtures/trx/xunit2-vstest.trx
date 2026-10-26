@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="00000000-0000-0000-0000-000000000000" name="scrubbed@xunit2" runUser="SCRUBBED" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <TestDefinitions>
+    <UnitTest name="Parameterized" id="xunit2-1"><TestMethod codeBase="xunit2.Tests.dll" adapterTypeName="xunit2" className="Fixtures.xunit2.ParameterizedTests" name="Adds" /></UnitTest>
+    <UnitTest name="ExplicitData" id="xunit2-2"><TestMethod codeBase="xunit2.Tests.dll" adapterTypeName="xunit2" className="Fixtures.xunit2.ParameterizedTests" name="ExplicitData" /></UnitTest>
+    <UnitTest name="DuplicateA" id="xunit2-3"><TestMethod codeBase="xunit2.Tests.dll" adapterTypeName="xunit2" className="Fixtures.xunit2.DuplicateA" name="SameDisplay" /></UnitTest>
+    <UnitTest name="DuplicateB" id="xunit2-4"><TestMethod codeBase="xunit2.Tests.dll" adapterTypeName="xunit2" className="Fixtures.xunit2.DuplicateB" name="SameDisplay" /></UnitTest>
+    <UnitTest name="Skipped" id="xunit2-5"><TestMethod codeBase="xunit2.Tests.dll" adapterTypeName="xunit2" className="Fixtures.xunit2.OutcomeTests" name="Skipped" /></UnitTest>
+    <UnitTest name="Unicode" id="xunit2-6"><TestMethod codeBase="xunit2.Tests.dll" adapterTypeName="xunit2" className="Fixtures.xunit2.UnicodeTests" name="Unicode_Δ_雪" /></UnitTest>
+    <UnitTest name="Long" id="xunit2-7"><TestMethod codeBase="xunit2.Tests.dll" adapterTypeName="xunit2" className="Fixtures.xunit2.LongNameTests" name="VeryLongNameSegmentVeryLongNameSegmentVeryLongNameSegmentVeryLongNameSegment" /></UnitTest>
+  </TestDefinitions>
+  <Results>
+    <UnitTestResult executionId="00000000-0000-0000-0000-000000000001" testId="xunit2-1" testName="Adds(1, 2, expected: 3)" outcome="Passed" duration="00:00:00.0010000" />
+    <UnitTestResult executionId="00000000-0000-0000-0000-000000000002" testId="xunit2-2" testName="A display name that is not identity" outcome="Failed" duration="00:00:00.0020000" dataRowInfo="row:explicit-42"><Output><ErrorInfo><Message>Expected 1 but got 2</Message><StackTrace>at SCRUBBED</StackTrace></ErrorInfo></Output></UnitTestResult>
+    <UnitTestResult executionId="00000000-0000-0000-0000-000000000003" testId="xunit2-3" testName="same display" outcome="Passed" duration="00:00:00.0030000" />
+    <UnitTestResult executionId="00000000-0000-0000-0000-000000000004" testId="xunit2-4" testName="same display" outcome="Passed" duration="00:00:00.0040000" />
+    <UnitTestResult executionId="00000000-0000-0000-0000-000000000005" testId="xunit2-5" testName="Skipped" outcome="NotExecuted" duration="00:00:00" />
+    <UnitTestResult executionId="00000000-0000-0000-0000-000000000006" testId="xunit2-6" testName="Unicode_Δ_雪(&quot;emoji 🚀 &amp; xml&quot;)" outcome="Passed" duration="00:00:00.0060000" />
+    <UnitTestResult executionId="00000000-0000-0000-0000-000000000007" testId="xunit2-7" testName="VeryLongNameSegmentVeryLongNameSegmentVeryLongNameSegmentVeryLongNameSegment(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa)" outcome="Inconclusive" duration="00:00:00.0070000" />
+    <UnitTestResult executionId="00000000-0000-0000-0000-000000000008" testId="missing-xunit2" testName="DisplayOnly(9)" outcome="Passed" duration="00:00:00.0080000" />
+  </Results>
+</TestRun>

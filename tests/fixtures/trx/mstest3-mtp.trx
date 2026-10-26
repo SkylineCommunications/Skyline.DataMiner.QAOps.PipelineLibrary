@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="00000000-0000-0000-0000-000000000000" name="scrubbed@mstest3" runUser="SCRUBBED" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <TestDefinitions>
+    <UnitTest name="Parameterized" id="mstest3-1"><TestMethod codeBase="mstest3.Tests.dll" adapterTypeName="mstest3" className="Fixtures.mstest3.ParameterizedTests" name="Adds" /></UnitTest>
+    <UnitTest name="ExplicitData" id="mstest3-2"><TestMethod codeBase="mstest3.Tests.dll" adapterTypeName="mstest3" className="Fixtures.mstest3.ParameterizedTests" name="ExplicitData" /></UnitTest>
+    <UnitTest name="DuplicateA" id="mstest3-3"><TestMethod codeBase="mstest3.Tests.dll" adapterTypeName="mstest3" className="Fixtures.mstest3.DuplicateA" name="SameDisplay" /></UnitTest>
+    <UnitTest name="DuplicateB" id="mstest3-4"><TestMethod codeBase="mstest3.Tests.dll" adapterTypeName="mstest3" className="Fixtures.mstest3.DuplicateB" name="SameDisplay" /></UnitTest>
+    <UnitTest name="Skipped" id="mstest3-5"><TestMethod codeBase="mstest3.Tests.dll" adapterTypeName="mstest3" className="Fixtures.mstest3.OutcomeTests" name="Skipped" /></UnitTest>
+    <UnitTest name="Unicode" id="mstest3-6"><TestMethod codeBase="mstest3.Tests.dll" adapterTypeName="mstest3" className="Fixtures.mstest3.UnicodeTests" name="Unicode_Δ_雪" /></UnitTest>
+    <UnitTest name="Long" id="mstest3-7"><TestMethod codeBase="mstest3.Tests.dll" adapterTypeName="mstest3" className="Fixtures.mstest3.LongNameTests" name="VeryLongNameSegmentVeryLongNameSegmentVeryLongNameSegmentVeryLongNameSegment" /></UnitTest>
+  </TestDefinitions>
+  <Results>
+    <UnitTestResult executionId="00000000-0000-0000-0000-000000000001" testId="mstest3-1" testName="Adds(1, 2, expected: 3)" outcome="Passed" duration="00:00:00.0010000" />
+    <UnitTestResult executionId="00000000-0000-0000-0000-000000000002" testId="mstest3-2" testName="A display name that is not identity" outcome="Failed" duration="00:00:00.0020000" dataRowInfo="row:explicit-42"><Output><ErrorInfo><Message>Expected 1 but got 2</Message><StackTrace>at SCRUBBED</StackTrace></ErrorInfo></Output></UnitTestResult>
+    <UnitTestResult executionId="00000000-0000-0000-0000-000000000003" testId="mstest3-3" testName="same display" outcome="Passed" duration="00:00:00.0030000" />
+    <UnitTestResult executionId="00000000-0000-0000-0000-000000000004" testId="mstest3-4" testName="same display" outcome="Passed" duration="00:00:00.0040000" />
+    <UnitTestResult executionId="00000000-0000-0000-0000-000000000005" testId="mstest3-5" testName="Skipped" outcome="NotExecuted" duration="00:00:00" />
+    <UnitTestResult executionId="00000000-0000-0000-0000-000000000006" testId="mstest3-6" testName="Unicode_Δ_雪(&quot;emoji 🚀 &amp; xml&quot;)" outcome="Passed" duration="00:00:00.0060000" />
+    <UnitTestResult executionId="00000000-0000-0000-0000-000000000007" testId="mstest3-7" testName="VeryLongNameSegmentVeryLongNameSegmentVeryLongNameSegmentVeryLongNameSegment(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa)" outcome="Inconclusive" duration="00:00:00.0070000" />
+    <UnitTestResult executionId="00000000-0000-0000-0000-000000000008" testId="missing-mstest3" testName="DisplayOnly(9)" outcome="Passed" duration="00:00:00.0080000" />
+  </Results>
+</TestRun>

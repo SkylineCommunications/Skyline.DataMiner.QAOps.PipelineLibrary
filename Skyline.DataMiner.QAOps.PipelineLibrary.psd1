@@ -71,6 +71,7 @@ Description = 'Shared QAOps pipeline functions for DataMiner automation and test
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = @(
     'Invoke-DotNetTestAndPublishResults',
+    'Invoke-DotNetTestHarvesting',
     'Initialize-QAFrameworkAgents',
     'Invoke-QAFrameworkTestPackage',
     'Invoke-QAFrameworkTestDiscovery'
@@ -87,10 +88,14 @@ FileList = @(
     'Private/Invoke-QAFrameworkToolJson.ps1',
     'Private/Limit-String.ps1',
     'Private/New-QAFrameworkRequestFile.ps1',
+    'Private/New-QAOpsUlid.ps1',
+    'Private/QAOpsMaintainers.ps1',
+    'Private/Get-QAOpsTrxResult.ps1',
     'Private/Resolve-QAFrameworkContentPath.ps1',
     'Private/Resolve-QAFrameworkPackageFilePath.ps1',
     'Public/Initialize-QAFrameworkAgents.ps1',
     'Public/Invoke-DotNetTestAndPublishResults.ps1',
+    'Public/Invoke-DotNetTestHarvesting.ps1',
     'Public/Invoke-QAFrameworkTestDiscovery.ps1',
     'Public/Invoke-QAFrameworkTestPackage.ps1',
     'Templates/1.TestPackageSetup.sample.ps1',
@@ -98,7 +103,8 @@ FileList = @(
     'Templates/3.TestPackageFinalize.sample.ps1',
     'Templates/qaframework.config.sample.json',
     'Templates/qaframework.tests.sample.json',
-    'Templates/TestDiscovery.sample.ps1'
+    'Templates/TestDiscovery.sample.ps1',
+    'Templates/TestDiscovery.DotNet.sample.ps1'
 )
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
@@ -159,3 +165,4 @@ PrivateData = @{
 # DefaultCommandPrefix = ''
 
 }
+
