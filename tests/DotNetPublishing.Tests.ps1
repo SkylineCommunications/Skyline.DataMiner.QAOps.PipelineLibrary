@@ -69,15 +69,25 @@ Describe 'Invoke-DotNetTestAndPublishResults runtime publishing' {
                 Set-Content -LiteralPath $path -Value $xml -Encoding UTF8
                 $global:LASTEXITCODE = 0
             }
-            function Push-TestRunManifest { param($CountSemanticsVersion,$ExpectedTests,$DiscoveredTests,$TestInvocations) $script:Manifest=$TestInvocations; [pscustomobject]@{ Supported=$true; Accepted=$true; StatusCode=202; ErrorCode=$null; Message='ok' } }
+            function Push-TestRunManifest { param($CountSemanticsVersion,$ExpectedTests,$DiscoveredTests,$TestInvocations,$SelectionKey) $script:Manifest=$TestInvocations; $script:Selection=$SelectionKey; [pscustomobject]@{ Supported=$true; Accepted=$true; StatusCode=202; ErrorCode=$null; Message='ok' } }
             function Push-TestRunFinalization { param($PublishedResultCount,$PublisherErrors) $script:Final=[pscustomobject]@{ Count=$PublishedResultCount; Errors=$PublisherErrors }; [pscustomobject]@{ Supported=$true; Accepted=$true; StatusCode=202; ErrorCode=$null; Message='ok' } }
-            function Push-TestCaseResult { param($Outcome,$Name,$Duration,$Message,$TestAspect,$ProducerEventId,$TestInvocationId,$AttemptId,$Maintainers) $script:Published += [pscustomobject]@{ Outcome=$Outcome; Name=$Name; ProducerEventId=$ProducerEventId; TestInvocationId=$TestInvocationId; AttemptId=$AttemptId; Maintainers=$Maintainers }; [pscustomobject]@{ Supported=$true; Accepted=$true; StatusCode=202; ErrorCode=$null; Message='ok' } }
+            function Push-TestCaseResult { param($Outcome,$Name,$Duration,$Message,$TestAspect,$ProducerEventId,$TestInvocationId,$AttemptId,$Maintainers) $script:Published += [pscustomobject]@{ Outcome=$Outcome; Name=$Name; TestAspect=$TestAspect; ProducerEventId=$ProducerEventId; TestInvocationId=$TestInvocationId; AttemptId=$AttemptId; Maintainers=$Maintainers }; [pscustomobject]@{ Supported=$true; Accepted=$true; StatusCode=202; ErrorCode=$null; Message='ok' } }
             Invoke-DotNetTestAndPublishResults -PathToTestPackageContent $Content -TestDllPath $Dll -ResultsFileName 'results.trx' -TestFilter 'Category=Smoke'
             @($script:Manifest).Count | Should -Be 1
-            @($script:Published).Count | Should -Be 1
+            $selection = $script:Selection | ConvertFrom-Json
+            $selection.assembly | Should -Be 'Tests.dll'
+            $selection.runner | Should -Be 'VSTest'
+            $selection.filter | Should -Be 'Category=Smoke'
+            $selection.target | Should -Be 'default'
+            $selection.publishNotExecuted | Should -BeTrue
+            @($script:Published).Count | Should -Be 2
+            @($script:Published.TestAspect) | Should -Be @('Assertion', 'Execution')
+            $script:Published[1].TestInvocationId | Should -Be $script:Published[0].TestInvocationId
+            $script:Published[1].AttemptId | Should -Be $script:Published[0].AttemptId
+            $script:Published[1].ProducerEventId | Should -Not -Be $script:Published[0].ProducerEventId
             $script:Published[0].TestInvocationId | Should -Be 'Tests.dll|Acme.Tests.Calculator.Add|data:(1,2)|target:default'
             $script:Published[0].Maintainers | Should -Match 'owner'
-            $script:Final.Count | Should -Be 1
+            $script:Final.Count | Should -Be 2
         }
     }
 }
@@ -127,9 +137,33 @@ Describe 'Invoke-DotNetTestAndPublishResults MTP publishing' {
             }
             function Push-TestRunManifest { param($CountSemanticsVersion,$ExpectedTests,$DiscoveredTests,$TestInvocations) [pscustomobject]@{ Supported=$true; Accepted=$true; StatusCode=202; ErrorCode=$null; Message='ok' } }
             function Push-TestRunFinalization { param($PublishedResultCount,$PublisherErrors) $script:FinalCount=$PublishedResultCount; [pscustomobject]@{ Supported=$true; Accepted=$true; StatusCode=202; ErrorCode=$null; Message='ok' } }
-            function Push-TestCaseResult { param($Outcome,$Name,$Duration,$Message,$TestAspect,$ProducerEventId,$TestInvocationId,$AttemptId,$Maintainers) $script:Published += [pscustomobject]@{ Outcome=$Outcome; Name=$Name; TestInvocationId=$TestInvocationId }; [pscustomobject]@{ Supported=$true; Accepted=$true; StatusCode=202; ErrorCode=$null; Message='ok' } }
+            function Push-TestCaseResult { param($Outcome,$Name,$Duration,$Message,$TestAspect,$ProducerEventId,$TestInvocationId,$AttemptId,$Maintainers) $script:Published += [pscustomobject]@{ Outcome=$Outcome; Name=$Name; TestAspect=$TestAspect; TestInvocationId=$TestInvocationId }; [pscustomobject]@{ Supported=$true; Accepted=$true; StatusCode=202; ErrorCode=$null; Message='ok' } }
             Invoke-DotNetTestAndPublishResults -PathToTestPackageContent $Content -TestDllPath $Dll -ResultsFileName 'mtp.trx' -UsesMTP 'true'
+            @($script:Published).Count | Should -Be 16
+            $script:FinalCount | Should -Be 16
+            foreach ($invocation in @($script:Published | Group-Object TestInvocationId)) {
+                $invocation.Count | Should -Be 2
+                @($invocation.Group.TestAspect) | Should -Be @('Assertion', 'Execution')
+                $invocation.Group[1].Outcome | Should -Be $invocation.Group[0].Outcome
+            }
+        }
+    }
+
+    It 'preserves one assertion emission per test with an older producer cmdlet' {
+        InModuleScope Skyline.DataMiner.QAOps.PipelineLibrary -Parameters @{ Content = $script:Content; Dll = $script:Dll; RepoRoot = $script:RepoRoot } {
+            $script:Published = @()
+            function dotnet {
+                param([Parameter(ValueFromRemainingArguments=$true)][object[]]$Arguments)
+                $logger = @($Arguments | Where-Object { [string]$_ -like 'trx;LogFileName=*' } | Select-Object -First 1)
+                Copy-Item -LiteralPath (Join-Path $RepoRoot 'tests\fixtures\trx\mstest3-vstest.trx') -Destination ([string]$logger).Substring('trx;LogFileName='.Length)
+                $global:LASTEXITCODE = 0
+            }
+            function Push-TestRunManifest { param($CountSemanticsVersion,$ExpectedTests,$DiscoveredTests,$TestInvocations) [pscustomobject]@{ Supported=$true; Accepted=$true } }
+            function Push-TestRunFinalization { param($PublishedResultCount,$PublisherErrors) $script:FinalCount=$PublishedResultCount; [pscustomobject]@{ Supported=$true; Accepted=$true } }
+            function Push-TestCaseResult { param($Outcome,$Name,$Duration,$Message,$TestAspect) $script:Published += [pscustomobject]@{ Outcome=$Outcome; Name=$Name; TestAspect=$TestAspect }; [pscustomobject]@{ Accepted=$true } }
+            Invoke-DotNetTestAndPublishResults -PathToTestPackageContent $Content -TestDllPath $Dll -ResultsFileName 'legacy.trx'
             @($script:Published).Count | Should -Be 8
+            @($script:Published | Where-Object TestAspect -ne 'Assertion').Count | Should -Be 0
             $script:FinalCount | Should -Be 8
         }
     }
@@ -143,8 +177,5 @@ Describe 'Invoke-DotNetTestAndPublishResults MTP publishing' {
         }
     }
 }
-
-
-
 
 

@@ -143,12 +143,22 @@ function Invoke-DotNetTestAndPublishResults {
             if (@($lookup.Diagnostics | Where-Object { $_.code -eq 'identity-invalid' }).Count -gt 0) {
                 [void]$publisherErrors.Add([pscustomobject]@{ testInvocationId=$null; code='identity-invalid'; message='The test identity could not be represented as a QAOps canonical key.' })
             }
-            [void]$enriched.Add([pscustomobject]@{ Result=$row; Lookup=$lookup; ProducerEventId=New-QAOpsUlid })
+            [void]$enriched.Add([pscustomobject]@{ Result=$row; Lookup=$lookup; ProducerEventId=New-QAOpsUlid; ExecutionProducerEventId=New-QAOpsUlid })
         }
 
         if ($manifestSupported) {
             $invocations = @($enriched | Where-Object { -not [string]::IsNullOrEmpty($_.Lookup.TestInvocationId) } | ForEach-Object { [pscustomobject]@{ testInvocationId=$_.Lookup.TestInvocationId; displayName=$_.Result.DisplayName; maintainers=$_.Lookup.Maintainers; diagnostics=(@($_.Lookup.Diagnostics) + @($_.Result.Diagnostics)); comparable=$_.Result.Comparable } })
             $manifestParams = @{ CountSemanticsVersion='qaops-counts-v1'; ExpectedTests=$invocations.Count; DiscoveredTests=$invocations.Count; TestInvocations=$invocations }
+            $manifestCommand = Get-Command -Name 'Push-TestRunManifest' -ErrorAction SilentlyContinue
+            if ($manifestCommand -and $manifestCommand.Parameters.ContainsKey('SelectionKey')) {
+                $manifestParams['SelectionKey'] = [ordered]@{
+                    assembly = $assemblyName
+                    runner = if ($UsesMTP -eq 'true') { 'MTP' } else { 'VSTest' }
+                    filter = $TestFilter
+                    target = 'default'
+                    publishNotExecuted = $PublishNotExecuted
+                } | ConvertTo-Json -Compress
+            }
             $manifestResult = Invoke-QAOpsCapabilityCommand -Name 'Push-TestRunManifest' -Parameters $manifestParams
             if ($manifestResult -and $manifestResult.PSObject.Properties.Name -contains 'Supported' -and -not $manifestResult.Supported) { $manifestSupported = $false; Write-Warning 'Push-TestRunManifest is unavailable; continuing with legacy result publishing.' }
             elseif ($manifestResult -and $manifestResult.PSObject.Properties.Name -contains 'Accepted' -and -not $manifestResult.Accepted) { [void]$publisherErrors.Add([pscustomobject]@{ testInvocationId=$null; code='PushTestRunManifestNotAccepted'; message=(Limit-String -stringToLimit ([string]$manifestResult.Message) -maxCharacters 1024) }) }
@@ -161,38 +171,47 @@ function Invoke-DotNetTestAndPublishResults {
             $r = $item.Result
             if ($r.Outcome -eq 'NotExecuted' -and -not $PublishNotExecuted) { continue }
             $om = ConvertTo-QAOpsOutcomeMessage -Result $r
-            $parameters = @{ Outcome=$om.Outcome; Name=$r.DisplayName; Duration=$r.Duration; Message=$om.Message; TestAspect='Assertion' }
-            if ($caseCommand) {
-                $supportedParams = $caseCommand.Parameters
-                if (-not $legacyWarningWritten -and (-not $supportedParams.ContainsKey('ProducerEventId') -or -not $supportedParams.ContainsKey('TestInvocationId') -or -not $supportedParams.ContainsKey('AttemptId') -or -not $supportedParams.ContainsKey('Maintainers'))) {
-                    Write-Warning 'Push-TestCaseResult does not support QAOps transport metadata; continuing with legacy result publishing.'
-                    $legacyWarningWritten = $true
-                }
-                if ($supportedParams.ContainsKey('ProducerEventId')) { $parameters['ProducerEventId'] = $item.ProducerEventId }
-                if ($supportedParams.ContainsKey('TestInvocationId') -and -not [string]::IsNullOrEmpty($item.Lookup.TestInvocationId)) { $parameters['TestInvocationId'] = $item.Lookup.TestInvocationId }
-                if ($supportedParams.ContainsKey('AttemptId')) { $parameters['AttemptId'] = $attemptId }
-                $maintainerValidation = Test-QAOpsMaintainerEnvelope -Maintainers $item.Lookup.Maintainers
-                if ($supportedParams.ContainsKey('Maintainers') -and $maintainerValidation.Valid) { $parameters['Maintainers'] = $maintainerValidation.Json }
-                elseif ($item.Lookup.Maintainers -and -not $maintainerValidation.Valid) { Write-Warning "Dropping invalid maintainer envelope for $($item.Lookup.TestInvocationId): $($maintainerValidation.Code)" }
-                try {
-                    $pushResult = Push-TestCaseResult @parameters
-                    $accepted = $true
-                    if ($pushResult -and $pushResult.PSObject.Properties.Name -contains 'Accepted') { $accepted = [bool]$pushResult.Accepted }
-                    if ($accepted) { $acceptedCount++ } else { [void]$publisherErrors.Add([pscustomobject]@{ testInvocationId=$item.Lookup.TestInvocationId; code='PushTestCaseResultNotAccepted'; message=(Limit-String -stringToLimit ([string]$pushResult.Message) -maxCharacters 1024) }); Write-Warning "Push-TestCaseResult was not accepted for $($item.Lookup.TestInvocationId)." }
-                }
-                catch {
-                    if ($parameters.ContainsKey('Maintainers') -and $_.Exception.Message -match 'maintain') {
-                        Write-Warning "Push-TestCaseResult rejected maintainer metadata for $($item.Lookup.TestInvocationId); retrying without maintainers."
-                        $parameters.Remove('Maintainers')
+            $aspects = @('Assertion')
+            if ($caseCommand -and $caseCommand.Parameters.ContainsKey('TestInvocationId') -and
+                $caseCommand.Parameters.ContainsKey('ProducerEventId') -and -not [string]::IsNullOrEmpty($item.Lookup.TestInvocationId)) {
+                $aspects += 'Execution'
+            }
+            foreach ($aspect in $aspects) {
+                $parameters = @{ Outcome=$om.Outcome; Name=$r.DisplayName; Duration=$r.Duration; Message=$om.Message; TestAspect=$aspect }
+                if ($caseCommand) {
+                        $supportedParams = $caseCommand.Parameters
+                        if (-not $legacyWarningWritten -and (-not $supportedParams.ContainsKey('ProducerEventId') -or -not $supportedParams.ContainsKey('TestInvocationId') -or -not $supportedParams.ContainsKey('AttemptId') -or -not $supportedParams.ContainsKey('Maintainers'))) {
+                            Write-Warning 'Push-TestCaseResult does not support QAOps transport metadata; continuing with legacy result publishing.'
+                            $legacyWarningWritten = $true
+                        }
+                        if ($supportedParams.ContainsKey('ProducerEventId')) {
+                            $parameters['ProducerEventId'] = if ($aspect -eq 'Execution') { $item.ExecutionProducerEventId } else { $item.ProducerEventId }
+                        }
+                        if ($supportedParams.ContainsKey('TestInvocationId') -and -not [string]::IsNullOrEmpty($item.Lookup.TestInvocationId)) { $parameters['TestInvocationId'] = $item.Lookup.TestInvocationId }
+                        if ($supportedParams.ContainsKey('AttemptId')) { $parameters['AttemptId'] = $attemptId }
+                        $maintainerValidation = Test-QAOpsMaintainerEnvelope -Maintainers $item.Lookup.Maintainers
+                        if ($supportedParams.ContainsKey('Maintainers') -and $maintainerValidation.Valid) { $parameters['Maintainers'] = $maintainerValidation.Json }
+                        elseif ($item.Lookup.Maintainers -and -not $maintainerValidation.Valid) { Write-Warning "Dropping invalid maintainer envelope for $($item.Lookup.TestInvocationId): $($maintainerValidation.Code)" }
                         try {
                             $pushResult = Push-TestCaseResult @parameters
-                            $retryAccepted = $true
-                            if ($pushResult -and $pushResult.PSObject.Properties.Name -contains 'Accepted') { $retryAccepted = [bool]$pushResult.Accepted }
-                            if ($retryAccepted) { $acceptedCount++ }
-                            else { [void]$publisherErrors.Add([pscustomobject]@{ testInvocationId=$item.Lookup.TestInvocationId; code='PushTestCaseResultNotAccepted'; message=(Limit-String -stringToLimit ([string]$pushResult.Message) -maxCharacters 1024) }); Write-Warning "Push-TestCaseResult retry was not accepted for $($item.Lookup.TestInvocationId)." }
+                            $accepted = $true
+                            if ($pushResult -and $pushResult.PSObject.Properties.Name -contains 'Accepted') { $accepted = [bool]$pushResult.Accepted }
+                            if ($accepted) { $acceptedCount++ } else { [void]$publisherErrors.Add([pscustomobject]@{ testInvocationId=$item.Lookup.TestInvocationId; code='PushTestCaseResultNotAccepted'; message=(Limit-String -stringToLimit ([string]$pushResult.Message) -maxCharacters 1024) }); Write-Warning "Push-TestCaseResult was not accepted for $($item.Lookup.TestInvocationId)." }
                         }
-                        catch { [void]$publisherErrors.Add([pscustomobject]@{ testInvocationId=$item.Lookup.TestInvocationId; code='PushTestCaseResultFailed'; message=(Limit-String -stringToLimit $_.Exception.Message -maxCharacters 1024) }); Write-Warning "Push-TestCaseResult failed for $($item.Lookup.TestInvocationId): $($_.Exception.Message)" }
-                    } else { [void]$publisherErrors.Add([pscustomobject]@{ testInvocationId=$item.Lookup.TestInvocationId; code='PushTestCaseResultFailed'; message=(Limit-String -stringToLimit $_.Exception.Message -maxCharacters 1024) }); Write-Warning "Push-TestCaseResult failed for $($item.Lookup.TestInvocationId): $($_.Exception.Message)" }
+                        catch {
+                            if ($parameters.ContainsKey('Maintainers') -and $_.Exception.Message -match 'maintain') {
+                                Write-Warning "Push-TestCaseResult rejected maintainer metadata for $($item.Lookup.TestInvocationId); retrying without maintainers."
+                                $parameters.Remove('Maintainers')
+                                try {
+                                    $pushResult = Push-TestCaseResult @parameters
+                                    $retryAccepted = $true
+                                    if ($pushResult -and $pushResult.PSObject.Properties.Name -contains 'Accepted') { $retryAccepted = [bool]$pushResult.Accepted }
+                                    if ($retryAccepted) { $acceptedCount++ }
+                                    else { [void]$publisherErrors.Add([pscustomobject]@{ testInvocationId=$item.Lookup.TestInvocationId; code='PushTestCaseResultNotAccepted'; message=(Limit-String -stringToLimit ([string]$pushResult.Message) -maxCharacters 1024) }); Write-Warning "Push-TestCaseResult retry was not accepted for $($item.Lookup.TestInvocationId)." }
+                                }
+                                catch { [void]$publisherErrors.Add([pscustomobject]@{ testInvocationId=$item.Lookup.TestInvocationId; code='PushTestCaseResultFailed'; message=(Limit-String -stringToLimit $_.Exception.Message -maxCharacters 1024) }); Write-Warning "Push-TestCaseResult failed for $($item.Lookup.TestInvocationId): $($_.Exception.Message)" }
+                            } else { [void]$publisherErrors.Add([pscustomobject]@{ testInvocationId=$item.Lookup.TestInvocationId; code='PushTestCaseResultFailed'; message=(Limit-String -stringToLimit $_.Exception.Message -maxCharacters 1024) }); Write-Warning "Push-TestCaseResult failed for $($item.Lookup.TestInvocationId): $($_.Exception.Message)" }
+                        }
                 }
             }
         }
@@ -203,7 +222,7 @@ function Invoke-DotNetTestAndPublishResults {
             if ($finalResult -and $finalResult.PSObject.Properties.Name -contains 'Supported' -and -not $finalResult.Supported) { $finalizationSupported = $false; Write-Warning 'Push-TestRunFinalization is unavailable; run completeness may remain unverifiable.' }
             elseif ($finalResult -and $finalResult.PSObject.Properties.Name -contains 'Accepted' -and -not $finalResult.Accepted) { Write-Warning "Push-TestRunFinalization was not accepted: $($finalResult.Message)" }
         }
-        Write-Host "Published $acceptedCount QAOps assertion result(s). Publisher error(s): $($publisherErrors.Count)." -ForegroundColor Cyan
+        Write-Host "Published $acceptedCount QAOps result emission(s). Publisher error(s): $($publisherErrors.Count)." -ForegroundColor Cyan
     }
     finally {
         if ($mtpResultsDirectory -and (Test-Path -LiteralPath $mtpResultsDirectory -PathType Container)) { try { Remove-Item -LiteralPath $mtpResultsDirectory -Recurse -Force } catch { Write-Warning "Failed to cleanup MTP output directory: $mtpResultsDirectory. $($_.Exception.Message)" } }
@@ -212,5 +231,3 @@ function Invoke-DotNetTestAndPublishResults {
         }
     }
 }
-
-

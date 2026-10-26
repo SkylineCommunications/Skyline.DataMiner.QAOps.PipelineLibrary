@@ -93,6 +93,19 @@ Runs `dotnet test` for a given test assembly, reads the generated `.trx` file, a
 5. Publishes passed tests as `OK` and failed, error, timeout, aborted, or unexpected outcomes as `Fail`.
 6. Logs the durations and counts, then removes the temporary TRX file.
 
+When the producer cmdlet supports invocation and event identities, each TRX
+invocation publishes an Assertion and a terminal Execution with the same invocation
+and attempt identities, but different event IDs. This preserves assertion detail
+while making completed, passed, failed, and skipped invocation counts measurable.
+Finalization counts accepted emissions, not logical tests. Older cmdlets retain
+their existing single-Assertion behavior and cannot prove terminal invocation
+coverage.
+
+Identity-capable manifest cmdlets also receive a stable selection key containing
+the assembly, runner, filter, target, and skipped-result publication mode. Exact
+logical counters require this count-domain identity; matching assertion-row totals
+alone do not establish coverage or cross-run comparability.
+
 ### Examples
 
 ```powershell
@@ -138,5 +151,3 @@ pwsh -NoProfile -Command "Import-Module Pester -MinimumVersion 5.0; Invoke-Peste
 - Keep functions focused and free of repository-specific paths.
 - Runtime functions must work on a Linux orchestrator. Use `Join-Path` and do not assume `C:\`.
 - Keep DataMiner Agent-only behavior inside the orchestrator.
-
-

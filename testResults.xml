@@ -1,0 +1,45 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<test-results xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="nunit_schema_2.5.xsd" name="Pester" total="12" errors="0" failures="0" not-run="0" inconclusive="0" ignored="0" skipped="0" invalid="0" date="2026-10-26" time="17:03:34">
+  <environment machine-name="JANST" cwd="D:\GITHUB\Skyline.DataMiner.QAOps.PipelineLibrary-QG" nunit-version="2.5.8.0" user-domain="SKYLINE2" platform="Microsoft Windows 11 Pro|C:\WINDOWS|\Device\Harddisk1\Partition3" os-version="10.0.26300" user="JanS" clr-version="10.0.14" />
+  <culture-info current-culture="nl-BE" current-uiculture="en-GB" />
+  <test-suite type="TestFixture" name="Pester" executed="True" result="Success" success="True" time="6.4813" asserts="0" description="Pester">
+    <results>
+      <test-suite type="TestFixture" name="D:\GITHUB\Skyline.DataMiner.QAOps.PipelineLibrary-QG\tests\DotNetPublishing.Tests.ps1" executed="True" result="Success" success="True" time="6.4813" asserts="0" description="D:\GITHUB\Skyline.DataMiner.QAOps.PipelineLibrary-QG\tests\DotNetPublishing.Tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="Runtime maintainer lookup conformance" executed="True" result="Success" success="True" time="1.49" asserts="0" description="Runtime maintainer lookup conformance">
+            <results>
+              <test-case description="matches runtime-lookup-vectors exactly" name="Runtime maintainer lookup conformance.matches runtime-lookup-vectors exactly" time="0.9203" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="validates maintainer envelope fixture outcomes" name="Runtime maintainer lookup conformance.validates maintainer envelope fixture outcomes" time="0.119" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="canonical keys equal sidecar and precedence fixtures" name="Runtime maintainer lookup conformance.canonical keys equal sidecar and precedence fixtures" time="0.2248" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="Invoke-DotNetTestAndPublishResults runtime publishing" executed="True" result="Success" success="True" time="2.0223" asserts="0" description="Invoke-DotNetTestAndPublishResults runtime publishing">
+            <results>
+              <test-case description="publishes manifest, enriched result and finalization while preserving TestFilter" name="Invoke-DotNetTestAndPublishResults runtime publishing.publishes manifest, enriched result and finalization while preserving TestFilter" time="0.4917" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="TRX fixture identity extraction matrix" executed="True" result="Success" success="True" time="2.4549" asserts="0" description="TRX fixture identity extraction matrix">
+            <results>
+              <test-suite type="ParameterizedTest" name="TRX fixture identity extraction matrix.extracts identities and data cases from scrubbed &lt;_&gt; fixture" executed="True" result="Success" success="True" time="0.4049" asserts="0" description="extracts identities and data cases from scrubbed &lt;_&gt; fixture">
+                <results>
+                  <test-case description="extracts identities and data cases from scrubbed mstest3-vstest.trx fixture" name="TRX fixture identity extraction matrix.extracts identities and data cases from scrubbed mstest3-vstest.trx fixture" time="0.1497" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="extracts identities and data cases from scrubbed nunit4-vstest.trx fixture" name="TRX fixture identity extraction matrix.extracts identities and data cases from scrubbed nunit4-vstest.trx fixture" time="0.1444" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="extracts identities and data cases from scrubbed xunit2-vstest.trx fixture" name="TRX fixture identity extraction matrix.extracts identities and data cases from scrubbed xunit2-vstest.trx fixture" time="0.0411" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="extracts identities and data cases from scrubbed xunit3-vstest.trx fixture" name="TRX fixture identity extraction matrix.extracts identities and data cases from scrubbed xunit3-vstest.trx fixture" time="0.041" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="extracts identities and data cases from scrubbed mstest3-mtp.trx fixture" name="TRX fixture identity extraction matrix.extracts identities and data cases from scrubbed mstest3-mtp.trx fixture" time="0.0286" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+            </results>
+          </test-suite>
+          <test-suite type="TestFixture" name="Invoke-DotNetTestAndPublishResults MTP publishing" executed="True" result="Success" success="True" time="3.046" asserts="0" description="Invoke-DotNetTestAndPublishResults MTP publishing">
+            <results>
+              <test-case description="publishes rows produced by --report-trx" name="Invoke-DotNetTestAndPublishResults MTP publishing.publishes rows produced by --report-trx" time="0.2694" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="preserves one assertion emission per test with an older producer cmdlet" name="Invoke-DotNetTestAndPublishResults MTP publishing.preserves one assertion emission per test with an older producer cmdlet" time="0.2097" asserts="0" success="True" result="Success" executed="True" />
+              <test-case description="does not throw or finalize when MTP produces no TRX" name="Invoke-DotNetTestAndPublishResults MTP publishing.does not throw or finalize when MTP produces no TRX" time="0.1025" asserts="0" success="True" result="Success" executed="True" />
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+    </results>
+  </test-suite>
+</test-results>
