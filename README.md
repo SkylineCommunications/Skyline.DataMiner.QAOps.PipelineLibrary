@@ -101,6 +101,13 @@ Finalization counts accepted emissions, not logical tests. Older cmdlets retain
 their existing single-Assertion behavior and cannot prove terminal invocation
 coverage.
 
+When `Push-TestCaseResult` exposes `-PassThru`, the publisher requests it to
+inspect the acknowledgement's `Accepted` property. It also supports cmdlets
+without that switch: older versions emit no success output, while the initial
+acknowledgement implementation emits the object unconditionally. A terminating
+publication error or a rejected acknowledgement is recorded as a publisher error,
+not an accepted emission.
+
 Identity-capable manifest cmdlets also receive a stable selection key containing
 the assembly, runner, filter, target, and skipped-result publication mode. Exact
 logical counters require this count-domain identity; matching assertion-row totals

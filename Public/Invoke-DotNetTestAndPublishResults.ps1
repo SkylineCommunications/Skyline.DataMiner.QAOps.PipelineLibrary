@@ -180,6 +180,7 @@ function Invoke-DotNetTestAndPublishResults {
                 $parameters = @{ Outcome=$om.Outcome; Name=$r.DisplayName; Duration=$r.Duration; Message=$om.Message; TestAspect=$aspect }
                 if ($caseCommand) {
                         $supportedParams = $caseCommand.Parameters
+                        if ($supportedParams.ContainsKey('PassThru')) { $parameters['PassThru'] = $true }
                         if (-not $legacyWarningWritten -and (-not $supportedParams.ContainsKey('ProducerEventId') -or -not $supportedParams.ContainsKey('TestInvocationId') -or -not $supportedParams.ContainsKey('AttemptId') -or -not $supportedParams.ContainsKey('Maintainers'))) {
                             Write-Warning 'Push-TestCaseResult does not support QAOps transport metadata; continuing with legacy result publishing.'
                             $legacyWarningWritten = $true
