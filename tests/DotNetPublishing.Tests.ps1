@@ -71,7 +71,7 @@ Describe 'Invoke-DotNetTestAndPublishResults runtime publishing' {
             }
             function Push-TestRunManifest { param($CountSemanticsVersion,$ExpectedTests,$DiscoveredTests,$TestInvocations,$SelectionKey) $script:Manifest=$TestInvocations; $script:Selection=$SelectionKey; [pscustomobject]@{ Supported=$true; Accepted=$true; StatusCode=202; ErrorCode=$null; Message='ok' } }
             function Push-TestRunFinalization { param($PublishedResultCount,$PublisherErrors) $script:Final=[pscustomobject]@{ Count=$PublishedResultCount; Errors=$PublisherErrors }; [pscustomobject]@{ Supported=$true; Accepted=$true; StatusCode=202; ErrorCode=$null; Message='ok' } }
-            function Push-TestCaseResult { param($Outcome,$Name,$Duration,$Message,$TestAspect,$ProducerEventId,$TestInvocationId,$AttemptId,$Maintainers) $script:Published += [pscustomobject]@{ Outcome=$Outcome; Name=$Name; TestAspect=$TestAspect; ProducerEventId=$ProducerEventId; TestInvocationId=$TestInvocationId; AttemptId=$AttemptId; Maintainers=$Maintainers }; [pscustomobject]@{ Supported=$true; Accepted=$true; StatusCode=202; ErrorCode=$null; Message='ok' } }
+            function Push-TestCaseResult { [CmdletBinding()] param($Outcome,$Name,$Duration,$Message,$TestAspect,$ProducerEventId,$TestInvocationId,$AttemptId,$Maintainers) $script:Published += [pscustomobject]@{ Outcome=$Outcome; Name=$Name; TestAspect=$TestAspect; ProducerEventId=$ProducerEventId; TestInvocationId=$TestInvocationId; AttemptId=$AttemptId; Maintainers=$Maintainers }; [pscustomobject]@{ Supported=$true; Accepted=$true; StatusCode=202; ErrorCode=$null; Message='ok' } }
             Invoke-DotNetTestAndPublishResults -PathToTestPackageContent $Content -TestDllPath $Dll -ResultsFileName 'results.trx' -TestFilter 'Category=Smoke'
             @($script:Manifest).Count | Should -Be 1
             $selection = $script:Selection | ConvertFrom-Json
@@ -88,6 +88,47 @@ Describe 'Invoke-DotNetTestAndPublishResults runtime publishing' {
             $script:Published[0].TestInvocationId | Should -Be 'Tests.dll|Acme.Tests.Calculator.Add|data:(1,2)|target:default'
             $script:Published[0].Maintainers | Should -Match 'owner'
             $script:Final.Count | Should -Be 2
+        }
+    }
+
+    It 'opts into acknowledgements and counts only accepted emissions (Accepted=<Accepted>)' -ForEach @(
+        @{ Accepted = $true; ExpectedCount = 2; ExpectedErrors = 0 }
+        @{ Accepted = $false; ExpectedCount = 0; ExpectedErrors = 2 }
+    ) {
+        InModuleScope Skyline.DataMiner.QAOps.PipelineLibrary -Parameters @{
+            Content = $script:Content; Dll = $script:Dll; Accepted = $Accepted
+            ExpectedCount = $ExpectedCount; ExpectedErrors = $ExpectedErrors
+        } {
+            $script:PassThruValues = @()
+            $script:AcceptPublication = $Accepted
+            function dotnet {
+                param([Parameter(ValueFromRemainingArguments=$true)][object[]]$Arguments)
+                $logger = @($Arguments | Where-Object { [string]$_ -like 'trx;LogFileName=*' } | Select-Object -First 1)
+                $path = ([string]$logger).Substring('trx;LogFileName='.Length)
+                $xml = '<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010"><TestDefinitions><UnitTest name="Add" id="1"><TestMethod className="Acme.Tests.Calculator" name="Add" /></UnitTest></TestDefinitions><Results><UnitTestResult testId="1" testName="Add(1,2)" outcome="Passed" duration="00:00:00.0100000" /></Results></TestRun>'
+                Set-Content -LiteralPath $path -Value $xml -Encoding UTF8
+                $global:LASTEXITCODE = 0
+            }
+            function Push-TestRunManifest { param($CountSemanticsVersion,$ExpectedTests,$DiscoveredTests,$TestInvocations) [pscustomobject]@{ Supported=$true; Accepted=$true } }
+            function Push-TestRunFinalization {
+                param($PublishedResultCount,$PublisherErrors)
+                $script:Final = [pscustomobject]@{ Count=$PublishedResultCount; Errors=@($PublisherErrors) }
+                [pscustomobject]@{ Supported=$true; Accepted=$true }
+            }
+            function Push-TestCaseResult {
+                [CmdletBinding()]
+                param($Outcome,$Name,$Duration,$Message,$TestAspect,$ProducerEventId,$TestInvocationId,$AttemptId,$Maintainers,[switch]$PassThru)
+                $script:PassThruValues += [bool]$PassThru
+                if ($PassThru) {
+                    [pscustomobject]@{ Supported=$true; Accepted=$script:AcceptPublication; Message='publication acknowledgement' }
+                }
+            }
+
+            Invoke-DotNetTestAndPublishResults -PathToTestPackageContent $Content -TestDllPath $Dll -ResultsFileName 'passthru.trx'
+
+            $script:PassThruValues | Should -Be @($true, $true)
+            $script:Final.Count | Should -Be $ExpectedCount
+            $script:Final.Errors.Count | Should -Be $ExpectedErrors
         }
     }
 }
@@ -160,7 +201,7 @@ Describe 'Invoke-DotNetTestAndPublishResults MTP publishing' {
             }
             function Push-TestRunManifest { param($CountSemanticsVersion,$ExpectedTests,$DiscoveredTests,$TestInvocations) [pscustomobject]@{ Supported=$true; Accepted=$true } }
             function Push-TestRunFinalization { param($PublishedResultCount,$PublisherErrors) $script:FinalCount=$PublishedResultCount; [pscustomobject]@{ Supported=$true; Accepted=$true } }
-            function Push-TestCaseResult { param($Outcome,$Name,$Duration,$Message,$TestAspect) $script:Published += [pscustomobject]@{ Outcome=$Outcome; Name=$Name; TestAspect=$TestAspect }; [pscustomobject]@{ Accepted=$true } }
+            function Push-TestCaseResult { [CmdletBinding()] param($Outcome,$Name,$Duration,$Message,$TestAspect) $script:Published += [pscustomobject]@{ Outcome=$Outcome; Name=$Name; TestAspect=$TestAspect } }
             Invoke-DotNetTestAndPublishResults -PathToTestPackageContent $Content -TestDllPath $Dll -ResultsFileName 'legacy.trx'
             @($script:Published).Count | Should -Be 8
             @($script:Published | Where-Object TestAspect -ne 'Assertion').Count | Should -Be 0
@@ -177,5 +218,4 @@ Describe 'Invoke-DotNetTestAndPublishResults MTP publishing' {
         }
     }
 }
-
 
