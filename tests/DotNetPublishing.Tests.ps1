@@ -111,8 +111,8 @@ Describe 'Invoke-DotNetTestAndPublishResults runtime publishing' {
             }
             function Push-TestRunManifest { param($CountSemanticsVersion,$ExpectedTests,$DiscoveredTests,$TestInvocations) [pscustomobject]@{ Supported=$true; Accepted=$true } }
             function Push-TestRunFinalization {
-                param($PublishedResultCount,$PublisherErrors)
-                $script:Final = [pscustomobject]@{ Count=$PublishedResultCount; Errors=@($PublisherErrors) }
+                param($PublishedResultCount,$PublisherErrors,$PublisherErrorCount,$OutstandingPublicationCount)
+                $script:Final = [pscustomobject]@{ Count=$PublishedResultCount; Errors=@($PublisherErrors); ErrorCount=$PublisherErrorCount; Outstanding=$OutstandingPublicationCount }
                 [pscustomobject]@{ Supported=$true; Accepted=$true }
             }
             function Push-TestCaseResult {
@@ -129,6 +129,36 @@ Describe 'Invoke-DotNetTestAndPublishResults runtime publishing' {
             $script:PassThruValues | Should -Be @($true, $true)
             $script:Final.Count | Should -Be $ExpectedCount
             $script:Final.Errors.Count | Should -Be $ExpectedErrors
+            $script:Final.ErrorCount | Should -Be $ExpectedErrors
+            $script:Final.Outstanding | Should -Be (2 - $ExpectedCount)
+        }
+    }
+
+    It 'does not truncate failed publication details before finalization can batch them' {
+        InModuleScope Skyline.DataMiner.QAOps.PipelineLibrary -Parameters @{ Content = $script:Content; Dll = $script:Dll } {
+            function dotnet {
+                param([Parameter(ValueFromRemainingArguments=$true)][object[]]$Arguments)
+                $path = ([string]@($Arguments | Where-Object { [string]$_ -like 'trx;LogFileName=*' })[0]).Substring('trx;LogFileName='.Length)
+                $definitions = (1..110 | ForEach-Object { "<UnitTest name='Case$_' id='$_'><TestMethod className='Tests' name='Case$_' /></UnitTest>" }) -join ''
+                $results = (1..110 | ForEach-Object { "<UnitTestResult testId='$_' testName='Case$_' outcome='Passed' duration='00:00:00.0100000' />" }) -join ''
+                Set-Content -LiteralPath $path -Value "<TestRun xmlns='http://microsoft.com/schemas/VisualStudio/TeamTest/2010'><TestDefinitions>$definitions</TestDefinitions><Results>$results</Results></TestRun>" -Encoding UTF8
+                $global:LASTEXITCODE = 0
+            }
+            function Push-TestRunManifest { param($CountSemanticsVersion,$ExpectedTests,$DiscoveredTests,$TestInvocations) [pscustomobject]@{ Supported=$true; Accepted=$true } }
+            function Push-TestCaseResult {
+                param($Outcome,$Name,$Duration,$Message,$TestAspect,$ProducerEventId,$TestInvocationId,$AttemptId,$Maintainers,[switch]$PassThru)
+                [pscustomobject]@{ Accepted=$false; Message='transport unavailable' }
+            }
+            function Push-TestRunFinalization {
+                param($PublishedResultCount,$PublisherErrors,$PublisherErrorCount,$OutstandingPublicationCount)
+                $script:Final = [pscustomobject]@{ Count=$PublishedResultCount; Errors=@($PublisherErrors); ErrorCount=$PublisherErrorCount; Outstanding=$OutstandingPublicationCount }
+                [pscustomobject]@{ Supported=$true; Accepted=$true }
+            }
+            Invoke-DotNetTestAndPublishResults -PathToTestPackageContent $Content -TestDllPath $Dll -ResultsFileName 'many-errors.trx'
+            $script:Final.Errors.Count | Should -Be 220
+            $script:Final.ErrorCount | Should -Be 220
+            $script:Final.Outstanding | Should -Be 220
+            $script:Final.Count | Should -Be 0
         }
     }
 }
@@ -218,4 +248,3 @@ Describe 'Invoke-DotNetTestAndPublishResults MTP publishing' {
         }
     }
 }
-

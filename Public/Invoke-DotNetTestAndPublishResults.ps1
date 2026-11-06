@@ -90,6 +90,7 @@ function Invoke-DotNetTestAndPublishResults {
     $attemptId = New-QAOpsUlid
     $publisherErrors = New-Object System.Collections.ArrayList
     $acceptedCount = 0
+    $attemptedCount = 0
     $manifestSupported = $true
     $finalizationSupported = $true
     $legacyWarningWritten = $false
@@ -166,7 +167,10 @@ function Invoke-DotNetTestAndPublishResults {
 
         Write-Host "Publishing $($rows.Count) TRX test result(s) to QAOps." -ForegroundColor Cyan
         $caseCommand = Get-Command -Name Push-TestCaseResult -ErrorAction SilentlyContinue
-        if ($null -eq $caseCommand) { Write-Warning 'Push-TestCaseResult is not available; results cannot be published.' }
+        if ($null -eq $caseCommand) {
+            [void]$publisherErrors.Add([pscustomobject]@{ testInvocationId=$null; code='result-publisher-unavailable'; message='Push-TestCaseResult is not available; results cannot be published.' })
+            Write-Warning 'Push-TestCaseResult is not available; results cannot be published.'
+        }
         foreach ($item in $enriched) {
             $r = $item.Result
             if ($r.Outcome -eq 'NotExecuted' -and -not $PublishNotExecuted) { continue }
@@ -177,6 +181,7 @@ function Invoke-DotNetTestAndPublishResults {
                 $aspects += 'Execution'
             }
             foreach ($aspect in $aspects) {
+                $attemptedCount++
                 $parameters = @{ Outcome=$om.Outcome; Name=$r.DisplayName; Duration=$r.Duration; Message=$om.Message; TestAspect=$aspect }
                 if ($caseCommand) {
                         $supportedParams = $caseCommand.Parameters
@@ -218,8 +223,15 @@ function Invoke-DotNetTestAndPublishResults {
         }
 
         if ($finalizationSupported) {
-            $errorsForFinalization = @($publisherErrors | Select-Object -First 100)
-            $finalResult = Invoke-QAOpsCapabilityCommand -Name 'Push-TestRunFinalization' -Parameters @{ PublishedResultCount=$acceptedCount; PublisherErrors=$errorsForFinalization }
+            $finalizationParameters = @{ PublishedResultCount=$acceptedCount; PublisherErrors=@($publisherErrors) }
+            $finalizationCommand = Get-Command -Name 'Push-TestRunFinalization' -ErrorAction SilentlyContinue
+            if ($finalizationCommand -and $finalizationCommand.Parameters.ContainsKey('PublisherErrorCount')) {
+                $finalizationParameters['PublisherErrorCount'] = $publisherErrors.Count
+            }
+            if ($finalizationCommand -and $finalizationCommand.Parameters.ContainsKey('OutstandingPublicationCount')) {
+                $finalizationParameters['OutstandingPublicationCount'] = [Math]::Max(0, $attemptedCount - $acceptedCount)
+            }
+            $finalResult = Invoke-QAOpsCapabilityCommand -Name 'Push-TestRunFinalization' -Parameters $finalizationParameters
             if ($finalResult -and $finalResult.PSObject.Properties.Name -contains 'Supported' -and -not $finalResult.Supported) { $finalizationSupported = $false; Write-Warning 'Push-TestRunFinalization is unavailable; run completeness may remain unverifiable.' }
             elseif ($finalResult -and $finalResult.PSObject.Properties.Name -contains 'Accepted' -and -not $finalResult.Accepted) { Write-Warning "Push-TestRunFinalization was not accepted: $($finalResult.Message)" }
         }
